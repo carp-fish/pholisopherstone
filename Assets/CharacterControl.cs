@@ -74,7 +74,6 @@ else if(rb.velocity.y<0)
 }
 
 
-
    void GroundMovement()
    {
       h =Input.GetAxisRaw("Horizontal");

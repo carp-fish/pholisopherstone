@@ -2415,7 +2415,7 @@ MonoBehaviour:
   upYMulti: 0.6
   MovableObj:
     serializedVersion: 2
-    m_Bits: 8
+    m_Bits: 0
   objRB: {fileID: 0}
 --- !u!1 &1501347528
 GameObject:

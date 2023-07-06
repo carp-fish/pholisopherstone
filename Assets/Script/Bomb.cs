@@ -7,6 +7,8 @@ public class Bomb : Explosion
     private bool hasCollided = false;
     private Animator anim;
 
+    public bool killdisable = false;
+
     private void Start() {
         anim = GetComponent<Animator>();
     }
@@ -17,7 +19,10 @@ public class Bomb : Explosion
         hasCollided = true;
         if(hasCollided)
         {
-            anim.SetBool("IsExplode" , true);
+            if(!killdisable)
+            {
+                anim.SetBool("IsExplode" , true);
+            }
             OnCollisionExplode();
             
         }

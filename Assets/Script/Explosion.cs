@@ -5,7 +5,6 @@ using UnityEngine;
 public class Explosion : MonoBehaviour
 {
     public Collider2D[] inExplosionRadius = null;
-
     [SerializeField] private float explosionForceMulti = 5;
     [SerializeField][Range(0f, 10)] private float explosionRadius = 5;
     [SerializeField][Range(0f, 1)] private float isForwardRange = 0.6f;
@@ -15,49 +14,43 @@ public class Explosion : MonoBehaviour
     [SerializeField] private float forwardYMulti = 1;
     [SerializeField] private float upXMulti = 1;
     [SerializeField] private float upYMulti = 1;
-
-
     public LayerMask MovableObj;
     public Rigidbody2D objRB;
 
     private void Update() {
          if(Input.GetKeyDown(KeyCode.N)){
-            Explode(decayRate);
+            ExplodeScan();
         }
     }
 
-    protected void Explode(float decayRate)
+    protected void ExplodeScan()
     {
-        inExplosionRadius = Physics2D.OverlapCircleAll(transform.position , explosionRadius , MovableObj);
+        inExplosionRadius = Physics2D.OverlapCircleAll(transform.position , explosionRadius);
+
+        float decayRateTemp = decayRate;
+        bool isExplode = false;
 
         foreach(Collider2D obj in inExplosionRadius)
         {
-            objRB = obj.GetComponent<Rigidbody2D>();
+            objRB = obj.GetComponentInParent<Rigidbody2D>();
 
             if(objRB != null)
             {
-                Vector2 distanceVector = obj.transform.position - transform.position;
-
-                Debug.Log(distanceVector.normalized);
-
-                if(distanceVector.magnitude > 0)
+                isExplode = true;
+                if(objRB.tag == "destructByExplode")
                 {
-
-                    float explosionForce = explosionForceMulti / (distanceVector.magnitude*decayRate);
-                    if(Mathf.Pow(distanceVector.normalized.x , 2) >= isForwardRange)
-                    {
-                        objRB.AddRelativeForce(new Vector2(distanceVector.normalized.x * forwardXMulti , distanceVector.normalized.y * forwardYMulti) * explosionForce , ForceMode2D.Impulse);
-                    }
-                    else if(Mathf.Pow(distanceVector.normalized.x , 2) <= isUpRange)
-                    {
-                        objRB.AddRelativeForce(new Vector2(distanceVector.normalized.x * upXMulti , distanceVector.normalized.y * upYMulti) * explosionForce , ForceMode2D.Impulse);
-                    }
-                    else
-                    {
-                        objRB.AddRelativeForce(distanceVector.normalized * explosionForce , ForceMode2D.Impulse);
-                    }
+                    ExplosionEffect piece = objRB.GetComponent<ExplosionEffect>();
+                    piece.disassemble();
+                }
+                if(objRB.tag == "Creature")
+                {
+                    decayRateTemp = 1;
                 }
             }
+        }
+        if(isExplode)
+        {
+            Explode(decayRateTemp);
         }
     }
 
@@ -67,6 +60,45 @@ public class Explosion : MonoBehaviour
     }
     public void OnCollisionExplode()
     {
-        Explode(1);
+        ExplodeScan();
+    }
+
+    public void Explode(float decayRate_funt)
+    {
+        inExplosionRadius = Physics2D.OverlapCircleAll(transform.position , explosionRadius);
+
+        foreach(Collider2D obj in inExplosionRadius)
+        {
+            objRB = obj.GetComponentInParent<Rigidbody2D>();
+
+            if(objRB != null)
+            {
+                Vector2 distanceVector = obj.transform.position - transform.position;
+
+                //Debug.Log(objRB.name);
+                Debug.Log(distanceVector.normalized);
+
+                if(distanceVector.magnitude > 0)
+                {
+
+                    float explosionForce = explosionForceMulti / (distanceVector.magnitude*decayRate_funt);
+                    //橫向衝擊
+                    if(Mathf.Pow(distanceVector.normalized.x , 2) >= isForwardRange)
+                    {
+                       objRB.AddRelativeForce(new Vector2(distanceVector.normalized.x * forwardXMulti , distanceVector.normalized.y * forwardYMulti) * explosionForce , ForceMode2D.Impulse);
+                    }
+                    //軸向衝擊減緩
+                    else if(Mathf.Pow(distanceVector.normalized.x , 2) <= isUpRange)
+                    {
+                        objRB.AddRelativeForce(new Vector2(distanceVector.normalized.x * upXMulti , distanceVector.normalized.y * upYMulti) * explosionForce , ForceMode2D.Impulse);
+                    }
+                    //衝擊
+                    else
+                    {
+                            objRB.AddRelativeForce(distanceVector.normalized * explosionForce , ForceMode2D.Impulse);
+                    }
+                }
+            }
+        }
     }
 }

@@ -3,17 +3,28 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - ground
+  - Obstacle
+  - BombPickup
+  - Enemy
+  - ExplosionFX
+  - Bullet
+  - HealthBar
+  - Movable
+  - destructByExplode
+  - Environment
+  - Creature
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Environment
   - Water
   - UI
-  - ground
-  - 
-  - 
+  - Ground
+  - ParticleLayer
+  - Player
   - 
   - 
   - 
@@ -38,6 +49,12 @@ TagManager:
   - 
   - 
   m_SortingLayers:
+  - name: Environment
+    uniqueID: 652518263
+    locked: 0
   - name: Default
     uniqueID: 0
+    locked: 0
+  - name: Player
+    uniqueID: 355087233
     locked: 0

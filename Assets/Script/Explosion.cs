@@ -42,7 +42,7 @@ public class Explosion : MonoBehaviour
                     ExplosionEffect piece = objRB.GetComponent<ExplosionEffect>();
                     piece.disassemble();
                 }
-                if(objRB.tag == "Creature")
+                if(objRB.tag == "Player")
                 {
                     decayRateTemp = 1;
                 }
@@ -71,12 +71,14 @@ public class Explosion : MonoBehaviour
         {
             objRB = obj.GetComponentInParent<Rigidbody2D>();
 
+            
+
             if(objRB != null)
             {
                 Vector2 distanceVector = obj.transform.position - transform.position;
 
-                //Debug.Log(objRB.name);
-                Debug.Log(distanceVector.normalized);
+                Debug.Log(obj.name);
+                //Debug.Log(distanceVector.normalized);
 
                 if(distanceVector.magnitude > 0)
                 {

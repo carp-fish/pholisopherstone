@@ -15,6 +15,7 @@ TagManager:
   - destructByExplode
   - Environment
   - Creature
+  - Explosive
   layers:
   - Default
   - TransparentFX
@@ -25,7 +26,7 @@ TagManager:
   - Ground
   - ParticleLayer
   - Player
-  - 
+  - Projectile
   - 
   - 
   - 

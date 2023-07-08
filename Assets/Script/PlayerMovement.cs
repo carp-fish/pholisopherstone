@@ -77,6 +77,11 @@ public class PlayerMovement : MonoBehaviour
 	[SerializeField] private LayerMask _groundLayer;
 	#endregion
 
+	private float getAttackUp;
+	private bool FacingUp = false , FacingDown = false;
+	public Transform weapon;
+	public bool isGround = false;
+
     private void Awake()
 	{
 		RB = GetComponent<Rigidbody2D>();
@@ -122,6 +127,10 @@ public class PlayerMovement : MonoBehaviour
 		{
 			OnDashInput();
 		}
+		if(Input.GetButtonDown("Fire1"))
+		{
+			Fire();
+		}
 		#endregion
 
 		#region COLLISION CHECKS
@@ -130,8 +139,13 @@ public class PlayerMovement : MonoBehaviour
 			//Ground Check
 			if (Physics2D.OverlapBox(_groundCheckPoint.position, _groundCheckSize, 0, _groundLayer) && !IsJumping) //checks if set box overlaps with ground
 			{
-				LastOnGroundTime = Data.coyoteTime; //if so sets the lastGrounded to coyoteTime
-            }		
+				LastOnGroundTime = Data.coyoteTime;
+				isGround = true; //if so sets the lastGrounded to coyoteTime
+            }
+			else
+			{
+				isGround = false;
+			}		
 
 			//Right Wall Check
 			if (((Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && IsFacingRight)
@@ -271,6 +285,10 @@ public class PlayerMovement : MonoBehaviour
 			SetGravityScale(0);
 		}
 		#endregion
+
+		CheckIfAttackUp();
+
+
     }
 
     private void FixedUpdate()
@@ -592,6 +610,57 @@ public class PlayerMovement : MonoBehaviour
             anim.SetBool("IsFalling" , true);
         }
     }
+
+	void CheckIfAttackUp()
+	{
+		if(_moveInput.y == 1 && _moveInput.x != 0)
+		{
+			weapon.rotation = Quaternion.Euler(0 , 0 , 45 * transform.localScale.x);
+			FacingUp = true;
+		}
+		else if(_moveInput.y == 1 && _moveInput.x == 0)
+		{
+			weapon.rotation = Quaternion.Euler(0 , 0 , 90 * transform.localScale.x);
+			FacingUp = true;
+		}
+		else if(_moveInput.y == -1 && _moveInput.x != 0 && (IsJumping || _isJumpFalling || !isGround))
+		{
+			weapon.rotation = Quaternion.Euler(0 , 0 , -45 * transform.localScale.x);
+			FacingDown = true;
+		}
+		else if(_moveInput.y == -1 && _moveInput.x == 0 && (IsJumping || _isJumpFalling || !isGround))
+		{
+			weapon.rotation = Quaternion.Euler(0 , 0 , -90 * transform.localScale.x);
+			FacingDown = true;
+		}
+		else
+		{
+			weapon.rotation = Quaternion.Euler(0 , 0 , 0);
+		}
+	}
+
+	void Fire() 
+	{
+		if(FacingUp)
+		{
+			anim.Play("FireUp");
+			FacingUp = false;
+		}
+		else if(FacingDown)
+		{
+			anim.Play("FireDown");
+			FacingDown = false;
+		}
+		else
+		{
+			anim.Play("FireFront");
+		}
+	}
+	void UsingFire()
+	{
+		BarrelScript fire = gameObject.GetComponentInChildren<BarrelScript>();
+		fire.Fireball();
+	}
 }
 
 

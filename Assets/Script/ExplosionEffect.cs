@@ -9,20 +9,19 @@ public class ExplosionEffect : MonoBehaviour {
 
     public Sprite texture;
     float cubesPivotDistance;
-    Vector3 cubesPivot;
+    public Vector3 cubesPivot;
     GameObject pieces;
     Component[] piececom;
-
+    public LayerMask pieceLayer;
+    public Transform bomb;
     public Collider2D[] colliders;
-    
-    public float explosionForce = 50f;
-    public float explosionRadius = 4f;
-    public float explosionUpward = 0.4f;
-    public float pieceMass = 1f;
-    public float pieceGravity = 1f;
+    public float explosionForce = 200f;
+    public float explosionRadiusMulti = 4f;
+    public float explosionUpward = 0.5f;
+    public float pieceMass = 5f;
+    public float pieceGravity = 2f;
     public float cleanDelayStart = 2f;
     public float cleanDelayEnd = 4f;
-    public LayerMask pieceLayer;
 
     // Use this for initialization
     void Start() {
@@ -40,10 +39,10 @@ public class ExplosionEffect : MonoBehaviour {
 
         //手動觸發解體
         if(Input.GetKeyDown(KeyCode.M)){
-            disassemble();
+            Disassemble();
         }
     }
-    public void disassemble() {
+    public void Disassemble() {
         
         //創造小碎塊的父類別，方便處理
         pieces = new GameObject("pieces");
@@ -57,10 +56,11 @@ public class ExplosionEffect : MonoBehaviour {
         //關閉本體
         gameObject.SetActive(false);
         //get explosion position
-        Vector2 explosionPos = transform.position;
+        //Vector2 explosionPos = transform.position;
         //get colliders in that position and radius
-        colliders = Physics2D.OverlapCircleAll(explosionPos, explosionRadius);
+        //colliders = Physics2D.OverlapCircleAll(explosionPos, explosionRadius);
         //add explosion force to all colliders in that overlap sphere
+        /*
         foreach (Collider2D hit in colliders) {
             //get rigidbody from collider object
             Rigidbody2D rb = hit.GetComponent<Rigidbody2D>();
@@ -69,9 +69,21 @@ public class ExplosionEffect : MonoBehaviour {
                 rb.AddExplosionForce(explosionForce, transform.position, explosionRadius, explosionUpward);
             }
         }
+        */
 
         //取得所有碎塊的component
+
+        
         piececom = pieces.GetComponentsInChildren(typeof(Collider2D));
+        /*
+
+        Vector2 distanceVector = transform.position - bomb.transform.position;
+
+        foreach(Collider2D piec in piececom)
+        {
+            piec.GetComponent<Rigidbody2D>().AddRelativeForce(distanceVector.normalized * explosionForce , ForceMode2D.Impulse);
+        }
+        */
 
         //清除碎塊
         Clean();
@@ -98,6 +110,11 @@ public class ExplosionEffect : MonoBehaviour {
         piece.GetComponent<Rigidbody2D>().mass = pieceMass;
         piece.GetComponent<Rigidbody2D>().gravityScale = pieceGravity;
         piece.layer = LayerMask.NameToLayer("ParticleLayer");
+
+        Vector2 distanceVector = piece.transform.position - bomb.transform.position;
+
+        piece.GetComponent<Rigidbody2D>().AddRelativeForce(distanceVector.normalized * explosionForce , ForceMode2D.Impulse);
+        
     }
 
     public void Clean()
@@ -105,12 +122,11 @@ public class ExplosionEffect : MonoBehaviour {
         foreach (Collider2D pieceColl in piececom) {
             Destroy(pieceColl.gameObject , UnityEngine.Random.Range(cleanDelayStart , cleanDelayEnd));
         }
-        Invoke("Killparent" , cleanDelayEnd);
+        Invoke("KillParent" , cleanDelayEnd);
     }
-    public void Killparent()
+    public void KillParent()
     {
         Destroy(pieces);
     }
-
     
 }

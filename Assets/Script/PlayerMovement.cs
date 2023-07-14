@@ -54,7 +54,7 @@ public class PlayerMovement : MonoBehaviour
 	#endregion
 
 	#region INPUT PARAMETERS
-	private Vector2 _moveInput;
+	public Vector2 _moveInput;
 
 	public float LastPressedJumpTime { get; private set; }
 	public float LastPressedDashTime { get; private set; }
@@ -81,6 +81,11 @@ public class PlayerMovement : MonoBehaviour
 	private bool FacingUp = false , FacingDown = false;
 	public Transform weapon;
 	public bool isGround = false;
+	public float movement;
+	public bool beingExplode = false;
+	public ParticleSystem jumpDust;
+	public ParticleSystem dashParticle;
+	public Transform dashParticlePivot;
 
     private void Awake()
 	{
@@ -230,7 +235,14 @@ public class PlayerMovement : MonoBehaviour
 			IsWallJumping = false;
 			_isJumpCut = false;
 
-			StartCoroutine(nameof(StartDash), _lastDashDir);
+			if((_moveInput.x == 0 && _moveInput.y == -1 && isGround))
+			{
+				StartCoroutine(nameof(StartDash), new Vector2(transform.localScale.x , 0));
+			}
+			else
+			{
+				StartCoroutine(nameof(StartDash), _lastDashDir);
+			}
 		}
 		#endregion
 
@@ -286,8 +298,7 @@ public class PlayerMovement : MonoBehaviour
 		}
 		#endregion
 
-		CheckIfAttackUp();
-
+		CheckAttackDir();
 
     }
 
@@ -412,11 +423,14 @@ public class PlayerMovement : MonoBehaviour
 	private void Turn()
 	{
 		//stores scale and flips the player along the x axis, 
-		Vector3 scale = transform.localScale; 
-		scale.x *= -1;
-		transform.localScale = scale;
+		if(!IsDashing)
+		{
+			Vector3 scale = transform.localScale; 
+			scale.x *= -1;
+			transform.localScale = scale;
 
-		IsFacingRight = !IsFacingRight;
+			IsFacingRight = !IsFacingRight;
+		}
 	}
     #endregion
 
@@ -434,6 +448,8 @@ public class PlayerMovement : MonoBehaviour
 		float force = Data.jumpForce;
 		if (RB.velocity.y < 0)
 			force -= RB.velocity.y;
+
+		CreateJumpDust();
 
 		RB.AddForce(Vector2.up * force, ForceMode2D.Impulse);
 		#endregion
@@ -459,6 +475,9 @@ public class PlayerMovement : MonoBehaviour
 
 		//Unlike in the run we want to use the Impulse mode.
 		//The default mode will apply are force instantly ignoring masss
+
+		CreateJumpDust();
+
 		RB.AddForce(force, ForceMode2D.Impulse);
 		#endregion
 	}
@@ -468,6 +487,7 @@ public class PlayerMovement : MonoBehaviour
 	//Dash Coroutine
 	private IEnumerator StartDash(Vector2 dir)
 	{
+		CheckDashParticleDir();
 		//Overall this method of dashing aims to mimic Celeste, if you're looking for
 		// a more physics-based approach try a method similar to that used in the jump
 
@@ -478,25 +498,41 @@ public class PlayerMovement : MonoBehaviour
 
 		_dashesLeft--;
 		_isDashAttacking = true;
-
+		bool dashPSUsed = false;
+		
 		SetGravityScale(0);
 
 		//We keep the player's velocity at the dash speed during the "attack" phase (in celeste the first 0.15s)
 		while (Time.time - startTime <= Data.dashAttackTime)
 		{
-			RB.velocity = dir.normalized * Data.dashSpeed;
+			if(!beingExplode)
+			{
+				if(!dashPSUsed)
+				{
+					CreateDashParticle();
+				}
+				RB.velocity = dir.normalized * Data.dashSpeed;
+				//Debug.Log("he");
+				dashPSUsed = true;
+			}
+			//RB.velocity = dir.normalized * Data.dashSpeed;
+			//RB.AddForce(dir.normalized * Data.dashSpeed , ForceMode2D.Force);
 			//Pauses the loop until the next frame, creating something of a Update loop. 
 			//This is a cleaner implementation opposed to multiple timers and this coroutine approach is actually what is used in Celeste :D
 			yield return null;
 		}
-
+		dashParticle.Stop();
 		startTime = Time.time;
 
 		_isDashAttacking = false;
 
 		//Begins the "end" of our dash where we return some control to the player but still limit run acceleration (see Update() and Run())
 		SetGravityScale(Data.gravityScale);
-		RB.velocity = Data.dashEndSpeed * dir.normalized;
+		if(!beingExplode)
+		{
+			RB.velocity = Data.dashEndSpeed * dir.normalized;
+		}
+		//RB.velocity = new Vector2(Mathf.Lerp(RB.velocity.x , movement , 0.001f) , RB.velocity.y);
 
 		while (Time.time - startTime <= Data.dashEndTime)
 		{
@@ -505,6 +541,9 @@ public class PlayerMovement : MonoBehaviour
 
 		//Dash over
 		IsDashing = false;
+		beingExplode = false;
+		dashPSUsed = false;
+		//Debug.Log("end");
 	}
 
 	//Short period before the player is able to dash again
@@ -566,7 +605,9 @@ public class PlayerMovement : MonoBehaviour
 	{
 		if (!IsDashing && _dashesLeft < Data.dashAmount && LastOnGroundTime > 0 && !_dashRefilling)
 		{
+
 			StartCoroutine(nameof(RefillDash), 1);
+
 		}
 
 		return _dashesLeft > 0;
@@ -611,7 +652,7 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-	void CheckIfAttackUp()
+	void CheckAttackDir()
 	{
 		if(_moveInput.y == 1 && _moveInput.x != 0)
 		{
@@ -638,6 +679,36 @@ public class PlayerMovement : MonoBehaviour
 			weapon.rotation = Quaternion.Euler(0 , 0 , 0);
 		}
 	}
+	void CheckDashParticleDir()
+	{
+		if(true)
+		{
+			if(_moveInput.y == 1 && _moveInput.x != 0)
+			{
+				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , 45 * transform.localScale.x);
+				FacingUp = true;
+			}
+			else if(_moveInput.y == 1 && _moveInput.x == 0)
+			{
+				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , 90 * transform.localScale.x);
+				FacingUp = true;
+			}
+			else if(_moveInput.y == -1 && _moveInput.x != 0 && (IsJumping || _isJumpFalling || !isGround))
+			{
+				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , -45 * transform.localScale.x);
+				FacingDown = true;
+			}
+			else if(_moveInput.y == -1 && _moveInput.x == 0 && (IsJumping || _isJumpFalling || !isGround))
+			{
+				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , -90 * transform.localScale.x);
+				FacingDown = true;
+			}
+			else
+			{
+				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , 0 * transform.localScale.x);
+			}
+		}
+	}
 
 	void Fire() 
 	{
@@ -661,6 +732,25 @@ public class PlayerMovement : MonoBehaviour
 		BarrelScript fire = gameObject.GetComponentInChildren<BarrelScript>();
 		fire.Fireball();
 	}
+
+	private void OnCollisionEnter2D(Collision2D other) {
+		if(other.gameObject.tag == "Explosive")
+		{
+			beingExplode = true;
+		}
+		//beingExplode = false;
+	}
+
+	void CreateJumpDust()
+	{
+		jumpDust.Play();
+	}
+
+	void CreateDashParticle()
+	{
+		dashParticle.Play();
+	}
+
 }
 
 

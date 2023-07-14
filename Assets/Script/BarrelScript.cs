@@ -7,7 +7,6 @@ public class BarrelScript : MonoBehaviour
     public Transform barrel;
     public Rigidbody2D bullet;
     public float fireSpeed = 500f;
-    public Transform owner;
 
     // Update is called once per frame
 

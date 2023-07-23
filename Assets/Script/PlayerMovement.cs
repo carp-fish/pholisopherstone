@@ -8,7 +8,7 @@
 
 using System.Collections;
 using UnityEngine;
-
+using UnityEngine.VFX;
 public class PlayerMovement : MonoBehaviour
 {
 	//Scriptable object which holds all the player's movement parameters. If you don't want to use it
@@ -86,6 +86,12 @@ public class PlayerMovement : MonoBehaviour
 	public ParticleSystem jumpDust;
 	public ParticleSystem dashParticle;
 	public Transform dashParticlePivot;
+	//public bool airPushing;
+	public LayerMask _airMovable;
+	//public GameObject windTrail;
+	public GameObject dashWindVFX;
+	public GameObject dashWindVFXSecond;
+	public GameObject windCenter;
 
     private void Awake()
 	{
@@ -164,6 +170,35 @@ public class PlayerMovement : MonoBehaviour
 
 			//Two checks needed for both left and right walls since whenever the play turns the wall checkPoints swap sides
 			LastOnWallTime = Mathf.Max(LastOnWallLeftTime, LastOnWallRightTime);
+		}
+		if(IsDashing)
+		{
+			//right air movable object pushing
+			Collider2D[] airMovableObj = null;
+			if((Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _airMovable) && IsFacingRight) && !IsWallJumping)
+			{
+				airMovableObj = Physics2D.OverlapBoxAll(_frontWallCheckPoint.position, _wallCheckSize, 0, _airMovable);
+			}
+
+			//left air movable object pushing
+			else if ((Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _airMovable) && !IsFacingRight) && !IsWallJumping)
+			{
+				airMovableObj = Physics2D.OverlapBoxAll(_frontWallCheckPoint.position, _wallCheckSize, 0, _airMovable);
+			}
+
+			if(airMovableObj != null)
+			{
+				foreach(var obj in airMovableObj)
+				{
+					Rigidbody2D objRB = obj.GetComponent<Rigidbody2D>();
+
+					Debug.Log("pushing");
+
+					objRB.AddForce(new Vector2(transform.localScale.x*500f , 0));
+					objRB.AddForce(new Vector2(-transform.localScale.x*100f , 0));
+				}
+			}
+
 		}
 		#endregion
 
@@ -487,7 +522,10 @@ public class PlayerMovement : MonoBehaviour
 	//Dash Coroutine
 	private IEnumerator StartDash(Vector2 dir)
 	{
-		CheckDashParticleDir();
+
+		CreateDashWind();
+		//CheckDashParticleDir();
+		//windTrail.SetActive(true);
 		//Overall this method of dashing aims to mimic Celeste, if you're looking for
 		// a more physics-based approach try a method similar to that used in the jump
 
@@ -509,11 +547,15 @@ public class PlayerMovement : MonoBehaviour
 			{
 				if(!dashPSUsed)
 				{
-					CreateDashParticle();
+					//CreateDashParticle();
 				}
 				RB.velocity = dir.normalized * Data.dashSpeed;
-				//Debug.Log("he");
 				dashPSUsed = true;
+			}
+			else
+			{
+				//dashParticle.Stop();
+				break;
 			}
 			//RB.velocity = dir.normalized * Data.dashSpeed;
 			//RB.AddForce(dir.normalized * Data.dashSpeed , ForceMode2D.Force);
@@ -521,7 +563,12 @@ public class PlayerMovement : MonoBehaviour
 			//This is a cleaner implementation opposed to multiple timers and this coroutine approach is actually what is used in Celeste :D
 			yield return null;
 		}
-		dashParticle.Stop();
+
+		//Invoke("DisableDashVFX" , 0.5f);
+
+		//windTrail.GetComponent<TrailRenderer>().Clear();
+		//windTrail.SetActive(false);
+		//dashParticle.Stop();
 		startTime = Time.time;
 
 		_isDashAttacking = false;
@@ -679,10 +726,14 @@ public class PlayerMovement : MonoBehaviour
 			weapon.rotation = Quaternion.Euler(0 , 0 , 0);
 		}
 	}
+
+	/*
 	void CheckDashParticleDir()
 	{
 		if(true)
 		{
+			VisualEffect dashWindvfx = dashWindVFX.GetComponent<VisualEffect>();
+
 			if(_moveInput.y == 1 && _moveInput.x != 0)
 			{
 				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , 45 * transform.localScale.x);
@@ -706,6 +757,31 @@ public class PlayerMovement : MonoBehaviour
 			else
 			{
 				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , 0 * transform.localScale.x);
+			}
+		}
+	}
+	*/
+	void CheckDashWindDir(GameObject dashWind)
+	{
+		if(true)
+		{
+			VisualEffect dashWindvfx = dashWind.GetComponent<VisualEffect>();
+			float inputXAbs = Mathf.Abs(_moveInput.x);
+
+			if(_moveInput.y == 1)
+			{
+				dashWindvfx.SetVector3("WindRotate" , new Vector3(1 , -1*transform.localScale.x*inputXAbs , 0));
+				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-transform.localScale.x*inputXAbs , -1 , 0));
+			}
+			else if(_moveInput.y == -1 && (IsJumping || _isJumpFalling || !isGround))
+			{
+				dashWindvfx.SetVector3("WindRotate" , new Vector3(-1 , -1*transform.localScale.x*inputXAbs , 0));
+				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-transform.localScale.x*inputXAbs , 1 , 0));
+			}
+			else
+			{
+				dashWindvfx.SetVector3("WindRotate" , new Vector3(0 , -1*transform.localScale.x , 0));
+				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-transform.localScale.x , 0 , 0));
 			}
 		}
 	}
@@ -746,9 +822,34 @@ public class PlayerMovement : MonoBehaviour
 		jumpDust.Play();
 	}
 
+	/*
 	void CreateDashParticle()
 	{
 		dashParticle.Play();
+	}
+
+	void DisableDashVFX()
+	{
+		dashWindVFX.SetActive(false);
+	}
+	*/
+
+	void CreateDashWind()
+	{
+		var dashWind = Instantiate(dashWindVFX , windCenter.transform.position , transform.rotation);
+		var dashWindSecond = Instantiate(dashWindVFXSecond , windCenter.transform.position , transform.rotation);
+
+		dashWindSecond.transform.parent = windCenter.transform;
+		//dashWind.transform.parent = windCenter.transform;
+
+		dashWind.SetActive(true);
+		dashWindSecond.SetActive(true);
+
+		CheckDashWindDir(dashWind);
+		CheckDashWindDir(dashWindSecond);
+
+		Destroy(dashWind , 1f);
+		Destroy(dashWindSecond , 1f);
 	}
 
 }

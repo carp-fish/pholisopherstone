@@ -75,6 +75,7 @@ public class PlayerMovement : MonoBehaviour
     #region LAYERS & TAGS
     [Header("Layers & Tags")]
 	[SerializeField] private LayerMask _groundLayer;
+	[SerializeField] private LayerMask _wetDirtLayer;
 	#endregion
 
 	private float getAttackUp;
@@ -82,16 +83,17 @@ public class PlayerMovement : MonoBehaviour
 	public Transform weapon;
 	public bool isGround = false;
 	public float movement;
-	public bool beingExplode = false;
+	public bool beingExplode;
 	public ParticleSystem jumpDust;
-	public ParticleSystem dashParticle;
-	public Transform dashParticlePivot;
+	//public ParticleSystem dashParticle;
+	//public Transform dashParticlePivot;
 	//public bool airPushing;
 	public LayerMask _airMovable;
 	//public GameObject windTrail;
 	public GameObject dashWindVFX;
 	public GameObject dashWindVFXSecond;
 	public GameObject windCenter;
+	private bool frontTouchWetDirt , backTouchWetDirt , touchWetDirt;
 
     private void Awake()
 	{
@@ -165,12 +167,29 @@ public class PlayerMovement : MonoBehaviour
 
 			//Right Wall Check
 			if (((Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && !IsFacingRight)
-				|| (Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && IsFacingRight)) && !IsWallJumping)
+					|| (Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && IsFacingRight)) && !IsWallJumping)
 				LastOnWallLeftTime = Data.coyoteTime;
+
+			if(Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) != null)
+				if(Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer).gameObject.tag == "WetDirt")
+					frontTouchWetDirt = true;
+				else
+					frontTouchWetDirt = false;
+			else
+				frontTouchWetDirt = false;
+					
+			if(Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) != null)
+				if(Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer).gameObject.tag == "WetDirt")
+					backTouchWetDirt = true;
+				else
+					backTouchWetDirt = false;
+			else
+				backTouchWetDirt = false;
 
 			//Two checks needed for both left and right walls since whenever the play turns the wall checkPoints swap sides
 			LastOnWallTime = Mathf.Max(LastOnWallLeftTime, LastOnWallRightTime);
 		}
+		//Dash pushing
 		if(IsDashing)
 		{
 			//right air movable object pushing
@@ -282,8 +301,11 @@ public class PlayerMovement : MonoBehaviour
 		#endregion
 
 		#region SLIDE CHECKS
-		if (CanSlide() && ((LastOnWallLeftTime > 0 && _moveInput.x < 0) || (LastOnWallRightTime > 0 && _moveInput.x > 0)))
+		if (CanSlide() && ((LastOnWallLeftTime > 0 && _moveInput.x < 0) || (LastOnWallRightTime > 0 && _moveInput.x > 0)) && touchWetDirt)
+		{
 			IsSliding = true;
+			//Debug.Log("slide");
+		}
 		else
 			IsSliding = false;
 		#endregion
@@ -334,6 +356,14 @@ public class PlayerMovement : MonoBehaviour
 		#endregion
 
 		CheckAttackDir();
+
+		if(frontTouchWetDirt || backTouchWetDirt)
+			touchWetDirt = true;
+		else
+			touchWetDirt = false;
+
+		if(!IsDashing)
+			beingExplode = false;
 
     }
 
@@ -536,7 +566,7 @@ public class PlayerMovement : MonoBehaviour
 
 		_dashesLeft--;
 		_isDashAttacking = true;
-		bool dashPSUsed = false;
+		//bool dashPSUsed = false;
 		
 		SetGravityScale(0);
 
@@ -545,12 +575,14 @@ public class PlayerMovement : MonoBehaviour
 		{
 			if(!beingExplode)
 			{
+				/*
 				if(!dashPSUsed)
 				{
 					//CreateDashParticle();
 				}
+				*/
 				RB.velocity = dir.normalized * Data.dashSpeed;
-				dashPSUsed = true;
+				//dashPSUsed = true;
 			}
 			else
 			{
@@ -589,7 +621,7 @@ public class PlayerMovement : MonoBehaviour
 		//Dash over
 		IsDashing = false;
 		beingExplode = false;
-		dashPSUsed = false;
+		//dashPSUsed = false;
 		//Debug.Log("end");
 	}
 

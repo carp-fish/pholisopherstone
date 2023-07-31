@@ -94,6 +94,7 @@ public class PlayerMovement : MonoBehaviour
 	public GameObject dashWindVFXSecond;
 	public GameObject windCenter;
 	private bool frontTouchWetDirt , backTouchWetDirt , touchWetDirt;
+	public bool leftKeyPressed , rightKeyPressed;
 
     private void Awake()
 	{
@@ -122,6 +123,17 @@ public class PlayerMovement : MonoBehaviour
 		#region INPUT HANDLER
 		_moveInput.x = Input.GetAxisRaw("Horizontal");
 		_moveInput.y = Input.GetAxisRaw("Vertical");
+
+		if(Input.GetKey(KeyCode.LeftArrow))
+			leftKeyPressed = true;
+		else
+			leftKeyPressed = false;
+		
+		if(Input.GetKey(KeyCode.RightArrow))
+			rightKeyPressed = true;
+		else
+			rightKeyPressed = false;
+
 
 		if (_moveInput.x != 0)
 			CheckDirectionToFace(_moveInput.x > 0);
@@ -277,8 +289,10 @@ public class PlayerMovement : MonoBehaviour
 			Sleep(Data.dashSleepTime); 
 
 			//If not direction pressed, dash forward
-			if (_moveInput != Vector2.zero)
+			if (_moveInput != Vector2.zero && !IsSliding)
+			{
 				_lastDashDir = _moveInput;
+			}
 			else
 				_lastDashDir = IsFacingRight ? Vector2.right : Vector2.left;
 
@@ -295,13 +309,14 @@ public class PlayerMovement : MonoBehaviour
 			}
 			else
 			{
+				Debug.Log(_lastDashDir);
 				StartCoroutine(nameof(StartDash), _lastDashDir);
 			}
 		}
 		#endregion
 
 		#region SLIDE CHECKS
-		if (CanSlide() && ((LastOnWallLeftTime > 0 && _moveInput.x < 0) || (LastOnWallRightTime > 0 && _moveInput.x > 0)) && touchWetDirt)
+		if (CanSlide() && ((LastOnWallLeftTime > 0 && _moveInput.x <= 0 && leftKeyPressed) || (LastOnWallRightTime > 0 && _moveInput.x >= 0 && rightKeyPressed)) && touchWetDirt)
 		{
 			IsSliding = true;
 			//Debug.Log("slide");
@@ -641,13 +656,18 @@ public class PlayerMovement : MonoBehaviour
 	{
 		//Works the same as the Run but only in the y-axis
 		//THis seems to work fine, buit maybe you'll find a better way to implement a slide into this system
-		float speedDif = Data.slideSpeed - RB.velocity.y;	
-		float movement = speedDif * Data.slideAccel;
+		//Debug.Log(RB.velocity);
+		if(RB.velocity.y >= Data.slideSpeed)
+		{
+			RB.velocity = new Vector2(RB.velocity.x , RB.velocity.y - 1);
+		}
+		float speedDif = Data.slideSpeed - RB.velocity.y;
+		float movement = Mathf.Abs(speedDif * Data.slideAccel);
 		//So, we clamp the movement here to prevent any over corrections (these aren't noticeable in the Run)
 		//The force applied can't be greater than the (negative) speedDifference * by how many times a second FixedUpdate() is called. For more info research how force are applied to rigidbodies.
 		movement = Mathf.Clamp(movement, -Mathf.Abs(speedDif)  * (1 / Time.fixedDeltaTime), Mathf.Abs(speedDif) * (1 / Time.fixedDeltaTime));
 
-		RB.AddForce(movement * Vector2.up);
+		RB.AddForce(movement * Vector2.down);
 	}
     #endregion
 
@@ -733,6 +753,21 @@ public class PlayerMovement : MonoBehaviour
 
 	void CheckAttackDir()
 	{
+		//bool isLeftWallSliding = false , isRightWallSliding = false;
+
+		if(IsSliding)
+		{
+			if(touchWetDirt && LastOnWallRightTime > 0 && rightKeyPressed && transform.localScale.x == 1)
+			{
+				Turn();	
+			}
+			
+			if(touchWetDirt && LastOnWallLeftTime > 0 && leftKeyPressed && transform.localScale.x == -1)
+			{
+				Turn();
+			}
+		}
+
 		if(_moveInput.y == 1 && _moveInput.x != 0)
 		{
 			weapon.rotation = Quaternion.Euler(0 , 0 , 45 * transform.localScale.x);

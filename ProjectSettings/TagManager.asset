@@ -16,7 +16,7 @@ TagManager:
   - Environment
   - Creature
   - Explosive
-  - WetDirt
+  - Mud
   layers:
   - Default
   - TransparentFX

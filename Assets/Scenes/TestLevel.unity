@@ -402,7 +402,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 200437120}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 17, y: 14.8, z: 0}
+  m_LocalPosition: {x: 7.59, y: 4.3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -438,9 +438,6 @@ MonoBehaviour:
   _groundLayer:
     serializedVersion: 2
     m_Bits: 64
-  _wetDirtLayer:
-    serializedVersion: 2
-    m_Bits: 2048
   weapon: {fileID: 1242432975}
   isGround: 0
   movement: 0
@@ -452,8 +449,6 @@ MonoBehaviour:
   dashWindVFX: {fileID: 1514763718812264057}
   dashWindVFXSecond: {fileID: 5951904887119543709}
   windCenter: {fileID: 476224867}
-  leftKeyPressed: 0
-  rightKeyPressed: 0
 --- !u!1 &307107521
 GameObject:
   m_ObjectHideFlags: 0
@@ -1089,9 +1084,10 @@ GameObject:
   - component: {fileID: 444646676}
   - component: {fileID: 444646675}
   - component: {fileID: 444646674}
+  - component: {fileID: 444646679}
   m_Layer: 6
-  m_Name: WetDirt
-  m_TagString: WetDirt
+  m_Name: Mud
+  m_TagString: Mud
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1528,6 +1524,19 @@ Tilemap:
     e31: 0
     e32: 0
     e33: 1
+--- !u!114 &444646679
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 444646672}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4027d4b27347af64883cea9813ef2dd9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mudAccel: 30
 --- !u!1 &462511092
 GameObject:
   m_ObjectHideFlags: 0
@@ -1760,7 +1769,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 519420028}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 17, y: 14.8, z: -10}
+  m_LocalPosition: {x: 7.59, y: 4.3, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1972,7 +1981,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 793988946}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 17, y: 14.8, z: -10}
+  m_LocalPosition: {x: 7.59, y: 4.3, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

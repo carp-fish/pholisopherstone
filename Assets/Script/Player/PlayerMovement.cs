@@ -75,7 +75,7 @@ public class PlayerMovement : MonoBehaviour
     #region LAYERS & TAGS
     [Header("Layers & Tags")]
 	[SerializeField] private LayerMask _groundLayer;
-	[SerializeField] private LayerMask _wetDirtLayer;
+	//[SerializeField] private LayerMask _mudLayer;
 	#endregion
 
 	private float getAttackUp;
@@ -93,8 +93,10 @@ public class PlayerMovement : MonoBehaviour
 	public GameObject dashWindVFX;
 	public GameObject dashWindVFXSecond;
 	public GameObject windCenter;
-	private bool frontTouchWetDirt , backTouchWetDirt , touchWetDirt;
-	public bool leftKeyPressed , rightKeyPressed;
+	private bool frontTouchMud , backTouchMud , touchMud;
+	private bool leftKeyPressed , rightKeyPressed;
+
+	public float LastOnMudTime { get; private set; }
 
     private void Awake()
 	{
@@ -118,6 +120,8 @@ public class PlayerMovement : MonoBehaviour
 
 		LastPressedJumpTime -= Time.deltaTime;
 		LastPressedDashTime -= Time.deltaTime;
+
+		LastOnMudTime -= Time.deltaTime;
 		#endregion
 
 		#region INPUT HANDLER
@@ -166,11 +170,12 @@ public class PlayerMovement : MonoBehaviour
 			{
 				LastOnGroundTime = Data.coyoteTime;
 				isGround = true; //if so sets the lastGrounded to coyoteTime
+
+				if(Physics2D.OverlapBox(_groundCheckPoint.position, _groundCheckSize, 0, _groundLayer).gameObject.tag == "Mud")
+					LastOnMudTime = Data.coyoteTime;
             }
 			else
-			{
 				isGround = false;
-			}		
 
 			//Right Wall Check
 			if (((Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && IsFacingRight)
@@ -183,20 +188,20 @@ public class PlayerMovement : MonoBehaviour
 				LastOnWallLeftTime = Data.coyoteTime;
 
 			if(Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) != null)
-				if(Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer).gameObject.tag == "WetDirt")
-					frontTouchWetDirt = true;
+				if(Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer).gameObject.tag == "Mud")
+					frontTouchMud = true;
 				else
-					frontTouchWetDirt = false;
+					frontTouchMud = false;
 			else
-				frontTouchWetDirt = false;
+				frontTouchMud = false;
 					
 			if(Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) != null)
-				if(Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer).gameObject.tag == "WetDirt")
-					backTouchWetDirt = true;
+				if(Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer).gameObject.tag == "Mud")
+					backTouchMud = true;
 				else
-					backTouchWetDirt = false;
+					backTouchMud = false;
 			else
-				backTouchWetDirt = false;
+				backTouchMud = false;
 
 			//Two checks needed for both left and right walls since whenever the play turns the wall checkPoints swap sides
 			LastOnWallTime = Mathf.Max(LastOnWallLeftTime, LastOnWallRightTime);
@@ -316,7 +321,7 @@ public class PlayerMovement : MonoBehaviour
 		#endregion
 
 		#region SLIDE CHECKS
-		if (CanSlide() && ((LastOnWallLeftTime > 0 && _moveInput.x <= 0 && leftKeyPressed) || (LastOnWallRightTime > 0 && _moveInput.x >= 0 && rightKeyPressed)) && touchWetDirt)
+		if (CanSlide() && ((LastOnWallLeftTime > 0 && _moveInput.x <= 0 && leftKeyPressed) || (LastOnWallRightTime > 0 && _moveInput.x >= 0 && rightKeyPressed)) && touchMud)
 		{
 			IsSliding = true;
 			//Debug.Log("slide");
@@ -372,10 +377,10 @@ public class PlayerMovement : MonoBehaviour
 
 		CheckAttackDir();
 
-		if(frontTouchWetDirt || backTouchWetDirt)
-			touchWetDirt = true;
+		if(frontTouchMud || backTouchMud)
+			touchMud = true;
 		else
-			touchWetDirt = false;
+			touchMud = false;
 
 		if(!IsDashing)
 			beingExplode = false;
@@ -526,6 +531,10 @@ public class PlayerMovement : MonoBehaviour
 		//This means we'll always feel like we jump the same amount 
 		//(setting the player's Y velocity to 0 beforehand will likely work the same, but I find this more elegant :D)
 		float force = Data.jumpForce;
+
+		if(LastOnMudTime > 0)
+			force = Data.jumpForce / 2f;
+			
 		if (RB.velocity.y < 0)
 			force -= RB.velocity.y;
 
@@ -757,12 +766,12 @@ public class PlayerMovement : MonoBehaviour
 
 		if(IsSliding)
 		{
-			if(touchWetDirt && LastOnWallRightTime > 0 && rightKeyPressed && transform.localScale.x == 1)
+			if(touchMud && LastOnWallRightTime > 0 && rightKeyPressed && transform.localScale.x == 1)
 			{
 				Turn();	
 			}
 			
-			if(touchWetDirt && LastOnWallLeftTime > 0 && leftKeyPressed && transform.localScale.x == -1)
+			if(touchMud && LastOnWallLeftTime > 0 && leftKeyPressed && transform.localScale.x == -1)
 			{
 				Turn();
 			}

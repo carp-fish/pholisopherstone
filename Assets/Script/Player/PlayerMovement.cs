@@ -36,7 +36,6 @@ public class PlayerMovement : MonoBehaviour
 	public float LastOnWallTime { get; private set; }
 	public float LastOnWallRightTime { get; private set; }
 	public float LastOnWallLeftTime { get; private set; }
-
 	//Jump
 	private bool _isJumpCut;
 	private bool _isJumpFalling;
@@ -97,6 +96,8 @@ public class PlayerMovement : MonoBehaviour
 	private bool leftKeyPressed , rightKeyPressed;
 
 	public float LastOnMudTime { get; private set; }
+	public float LastOnWindTime { get; private set; }
+	private bool inHorizontalWind;
 
     private void Awake()
 	{
@@ -122,6 +123,7 @@ public class PlayerMovement : MonoBehaviour
 		LastPressedDashTime -= Time.deltaTime;
 
 		LastOnMudTime -= Time.deltaTime;
+		LastOnWindTime -= Time.deltaTime;
 		#endregion
 
 		#region INPUT HANDLER
@@ -385,6 +387,7 @@ public class PlayerMovement : MonoBehaviour
 		if(!IsDashing)
 			beingExplode = false;
 
+
     }
 
     private void FixedUpdate()
@@ -399,7 +402,7 @@ public class PlayerMovement : MonoBehaviour
 		}
 		else if (_isDashAttacking)
 		{
-			Run(Data.dashEndRunLerp);
+			//Run(Data.dashEndRunLerp);
 		}
 
 		//Handle Slide
@@ -457,7 +460,10 @@ public class PlayerMovement : MonoBehaviour
 		//Calculate the direction we want to move in and our desired velocity
 		float targetSpeed = _moveInput.x * Data.runMaxSpeed;
 		//We can reduce are control using Lerp() this smooths changes to are direction and speed
-		targetSpeed = Mathf.Lerp(RB.velocity.x, targetSpeed, lerpAmount);
+		if(LastOnWindTime < 0)
+		{
+			targetSpeed = Mathf.Lerp(RB.velocity.x, targetSpeed, lerpAmount);
+		}
 
 		#region Calculate AccelRate
 		float accelRate;
@@ -481,12 +487,14 @@ public class PlayerMovement : MonoBehaviour
 
 		#region Conserve Momentum
 		//We won't slow the player down if they are moving in their desired direction but at a greater speed than their maxSpeed
-		if(Data.doConserveMomentum && Mathf.Abs(RB.velocity.x) > Mathf.Abs(targetSpeed) && Mathf.Sign(RB.velocity.x) == Mathf.Sign(targetSpeed) && Mathf.Abs(targetSpeed) > 0.01f && LastOnGroundTime < 0)
+		if(Data.doConserveMomentum && Mathf.Abs(RB.velocity.x) > Mathf.Abs(targetSpeed) && Mathf.Sign(RB.velocity.x) == Mathf.Sign(targetSpeed) && Mathf.Abs(targetSpeed) > 0.01f && LastOnGroundTime < 0 && LastOnWindTime < 0)
 		{
 			//Prevent any deceleration from happening, or in other words conserve are current momentum
 			//You could experiment with allowing for the player to slightly increae their speed whilst in this "state"
 			accelRate = 0; 
 		}
+		if(Data.doConserveMomentum && LastOnWindTime > 0 && inHorizontalWind)
+			accelRate = 0.2f;
 		#endregion
 
 		//Calculate difference between current velocity and desired velocity
@@ -928,6 +936,17 @@ public class PlayerMovement : MonoBehaviour
 		Destroy(dashWindSecond , 1f);
 	}
 
+	private void OnTriggerStay2D(Collider2D trigger) {
+		 if(trigger.tag == "WindArea")
+		 {
+			LastOnWindTime = Data.coyoteTime;
+			WindArea wind = trigger.gameObject.GetComponent<WindArea>();
+			if(wind.isHorizontal)
+				inHorizontalWind = true;
+			else
+				inHorizontalWind = false;
+		 }
+	}
 }
 
 

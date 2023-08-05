@@ -17,8 +17,7 @@ public class PlayerMovement : MonoBehaviour
 
 	#region COMPONENTS
     public Rigidbody2D RB { get; private set; }
-
-	public Animator anim { get; private set; }
+	public Animator Anim { get; private set; }
 	#endregion
 
 	#region STATE PARAMETERS
@@ -30,12 +29,18 @@ public class PlayerMovement : MonoBehaviour
 	public bool IsWallJumping { get; private set; }
 	public bool IsDashing { get; private set; }
 	public bool IsSliding { get; private set; }
+	public bool IsCrouching { get; private set; }
 
 	//Timers (also all fields, could be private and a method returning a bool could be used)
 	public float LastOnGroundTime { get; private set; }
 	public float LastOnWallTime { get; private set; }
 	public float LastOnWallRightTime { get; private set; }
 	public float LastOnWallLeftTime { get; private set; }
+	public float LastOnMudTime { get; private set; }
+	public float LastOnWindTime { get; private set; }
+	public float LastPressedJumpTime { get; private set; }
+	public float LastPressedDashTime { get; private set; }
+	public float LastPressedPushTime { get; private set; }
 	//Jump
 	private bool _isJumpCut;
 	private bool _isJumpFalling;
@@ -50,13 +55,29 @@ public class PlayerMovement : MonoBehaviour
 	private Vector2 _lastDashDir;
 	private bool _isDashAttacking;
 
+	//Slide
+	private bool frontWallMud;
+	private bool backWallMud;
+
+	//Push
+	private float _pushesLeft;
+	private bool _pushRefilling;
+	private Collider2D[] airMovableObj;
+
+	//Direction
+	private bool FacingUp;
+	private bool FacingDown;
+
+	//Effects
+	private bool inHorizontalWind;
+
 	#endregion
 
 	#region INPUT PARAMETERS
 	public Vector2 _moveInput;
-
-	public float LastPressedJumpTime { get; private set; }
-	public float LastPressedDashTime { get; private set; }
+	private bool leftKeyPressed;
+	private bool rightKeyPressed;
+	private bool downKeyPressed;
 	#endregion
 
 	#region CHECK PARAMETERS
@@ -69,46 +90,49 @@ public class PlayerMovement : MonoBehaviour
 	[SerializeField] private Transform _frontWallCheckPoint;
 	[SerializeField] private Transform _backWallCheckPoint;
 	[SerializeField] private Vector2 _wallCheckSize = new Vector2(0.5f, 1f);
+	[Space(5)]
+	[SerializeField] private Transform _barrelCheckPoint;
+	[SerializeField] private Vector2 _pushCheckSize = new Vector2(1f, 0.5f);
     #endregion
 
     #region LAYERS & TAGS
     [Header("Layers & Tags")]
 	[SerializeField] private LayerMask _groundLayer;
+	[SerializeField] private LayerMask _airMovable;
 	//[SerializeField] private LayerMask _mudLayer;
 	#endregion
 
-	private float getAttackUp;
-	private bool FacingUp = false , FacingDown = false;
+	#region OBJECTS & EFFECTS
+	[Header("Objects & Effects")]
+	public GameObject Center;
 	public Transform weapon;
-	public bool isGround = false;
+	public GameObject standCollider;
+	public GameObject crouchCollider;
+	public ParticleSystem jumpDust;
+	public GameObject dashWindVFX;
+	public GameObject dashWindVFXSecond;
+	#endregion
+
+	#region  FOR DEBUG
+	[Header("Debug")]
 	public float movement;
 	public bool beingExplode;
-	public ParticleSystem jumpDust;
+	#endregion
 	//public ParticleSystem dashParticle;
 	//public Transform dashParticlePivot;
 	//public bool airPushing;
-	public LayerMask _airMovable;
 	//public GameObject windTrail;
-	public GameObject dashWindVFX;
-	public GameObject dashWindVFXSecond;
-	public GameObject windCenter;
-	private bool frontTouchMud , backTouchMud , touchMud;
-	private bool leftKeyPressed , rightKeyPressed;
-
-	public float LastOnMudTime { get; private set; }
-	public float LastOnWindTime { get; private set; }
-	private bool inHorizontalWind;
-
     private void Awake()
 	{
 		RB = GetComponent<Rigidbody2D>();
-		anim = GetComponent<Animator>();
+		Anim = GetComponent<Animator>();
 	}
 
 	private void Start()
 	{
 		SetGravityScale(Data.gravityScale);
 		IsFacingRight = true;
+		crouchCollider.SetActive(false);
 	}
 
 	private void Update()
@@ -118,12 +142,12 @@ public class PlayerMovement : MonoBehaviour
 		LastOnWallTime -= Time.deltaTime;
 		LastOnWallRightTime -= Time.deltaTime;
 		LastOnWallLeftTime -= Time.deltaTime;
+		LastOnMudTime -= Time.deltaTime;
+		LastOnWindTime -= Time.deltaTime;
 
 		LastPressedJumpTime -= Time.deltaTime;
 		LastPressedDashTime -= Time.deltaTime;
-
-		LastOnMudTime -= Time.deltaTime;
-		LastOnWindTime -= Time.deltaTime;
+		LastPressedPushTime -= Time.deltaTime;
 		#endregion
 
 		#region INPUT HANDLER
@@ -139,24 +163,29 @@ public class PlayerMovement : MonoBehaviour
 			rightKeyPressed = true;
 		else
 			rightKeyPressed = false;
+		if(Input.GetKey(KeyCode.DownArrow))
+			downKeyPressed = true;
+		else
+			downKeyPressed = false;
 
 
 		if (_moveInput.x != 0)
 			CheckDirectionToFace(_moveInput.x > 0);
 
-		if(Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.J))
+		if(Input.GetKeyDown(KeyCode.Space))
         {
 			OnJumpInput();
         }
 
-		if (Input.GetKeyUp(KeyCode.Space) || Input.GetKeyUp(KeyCode.C) || Input.GetKeyUp(KeyCode.J))
+		if (Input.GetKeyUp(KeyCode.Space))
 		{
 			OnJumpUpInput();
 		}
 
-		if (Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.K))
+		if (Input.GetKeyDown(KeyCode.X))
 		{
 			OnDashInput();
+			OnPushInput();
 		}
 		if(Input.GetButtonDown("Fire1"))
 		{
@@ -170,14 +199,12 @@ public class PlayerMovement : MonoBehaviour
 			//Ground Check
 			if (Physics2D.OverlapBox(_groundCheckPoint.position, _groundCheckSize, 0, _groundLayer) && !IsJumping) //checks if set box overlaps with ground
 			{
+				//if so sets the lastGrounded to coyoteTime
 				LastOnGroundTime = Data.coyoteTime;
-				isGround = true; //if so sets the lastGrounded to coyoteTime
 
 				if(Physics2D.OverlapBox(_groundCheckPoint.position, _groundCheckSize, 0, _groundLayer).gameObject.tag == "Mud")
 					LastOnMudTime = Data.coyoteTime;
             }
-			else
-				isGround = false;
 
 			//Right Wall Check
 			if (((Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && IsFacingRight)
@@ -189,53 +216,31 @@ public class PlayerMovement : MonoBehaviour
 					|| (Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && IsFacingRight)) && !IsWallJumping)
 				LastOnWallLeftTime = Data.coyoteTime;
 
-			if(Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) != null)
-				if(Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer).gameObject.tag == "Mud")
-					frontTouchMud = true;
-				else
-					frontTouchMud = false;
-			else
-				frontTouchMud = false;
-					
-			if(Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) != null)
-				if(Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer).gameObject.tag == "Mud")
-					backTouchMud = true;
-				else
-					backTouchMud = false;
-			else
-				backTouchMud = false;
-
 			//Two checks needed for both left and right walls since whenever the play turns the wall checkPoints swap sides
 			LastOnWallTime = Mathf.Max(LastOnWallLeftTime, LastOnWallRightTime);
-		}
-		//Dash pushing
-		if(IsDashing)
-		{
-			//right air movable object pushing
-			Collider2D[] airMovableObj = null;
-			if((Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _airMovable) && IsFacingRight) && !IsWallJumping)
-			{
-				airMovableObj = Physics2D.OverlapBoxAll(_frontWallCheckPoint.position, _wallCheckSize, 0, _airMovable);
-			}
 
-			//left air movable object pushing
-			else if ((Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _airMovable) && !IsFacingRight) && !IsWallJumping)
-			{
-				airMovableObj = Physics2D.OverlapBoxAll(_frontWallCheckPoint.position, _wallCheckSize, 0, _airMovable);
-			}
+			//Front Mud Check
+			if(Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) != null)
+				if(Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer).gameObject.tag == "Mud")
+					frontWallMud = true;
+				else
+					frontWallMud = false;
+			else
+				frontWallMud = false;
+			
+			//Back Mud Check
+			if(Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) != null)
+				if(Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer).gameObject.tag == "Mud")
+					backWallMud = true;
+				else
+					backWallMud = false;
+			else
+				backWallMud = false;
 
-			if(airMovableObj != null)
-			{
-				foreach(var obj in airMovableObj)
-				{
-					Rigidbody2D objRB = obj.GetComponent<Rigidbody2D>();
-
-					Debug.Log("pushing");
-
-					objRB.AddForce(new Vector2(transform.localScale.x*500f , 0));
-					objRB.AddForce(new Vector2(-transform.localScale.x*100f , 0));
-				}
-			}
+			//Air-movable Object Check
+			if(Physics2D.OverlapBox(_barrelCheckPoint.position, _pushCheckSize, 0, _airMovable))
+				airMovableObj = Physics2D.OverlapBoxAll(_barrelCheckPoint.position, _pushCheckSize, 0, _airMovable);
+			
 
 		}
 		#endregion
@@ -290,7 +295,7 @@ public class PlayerMovement : MonoBehaviour
 		#endregion
 
 		#region DASH CHECKS
-		if (CanDash() && LastPressedDashTime > 0)
+		if (CanDash() && LastPressedDashTime > 0 && !IsCrouching)
 		{
 			//Freeze game for split second. Adds juiciness and a bit of forgiveness over directional input
 			Sleep(Data.dashSleepTime); 
@@ -303,15 +308,15 @@ public class PlayerMovement : MonoBehaviour
 			else
 				_lastDashDir = IsFacingRight ? Vector2.right : Vector2.left;
 
-
-
 			IsDashing = true;
 			IsJumping = false;
 			IsWallJumping = false;
 			_isJumpCut = false;
-
+			
+			/*
 			if((_moveInput.x == 0 && _moveInput.y == -1 && isGround))
 			{
+				Debug.Log("gee");
 				StartCoroutine(nameof(StartDash), new Vector2(transform.localScale.x , 0));
 			}
 			else
@@ -319,11 +324,13 @@ public class PlayerMovement : MonoBehaviour
 				Debug.Log(_lastDashDir);
 				StartCoroutine(nameof(StartDash), _lastDashDir);
 			}
+			*/
+			StartCoroutine(nameof(StartDash), _lastDashDir);
 		}
 		#endregion
 
 		#region SLIDE CHECKS
-		if (CanSlide() && ((LastOnWallLeftTime > 0 && _moveInput.x <= 0 && leftKeyPressed) || (LastOnWallRightTime > 0 && _moveInput.x >= 0 && rightKeyPressed)) && touchMud)
+		if (CanSlide() && ((LastOnWallLeftTime > 0 && _moveInput.x <= 0 && leftKeyPressed) || (LastOnWallRightTime > 0 && _moveInput.x >= 0 && rightKeyPressed)) && OnWallMud())
 		{
 			IsSliding = true;
 			//Debug.Log("slide");
@@ -331,6 +338,9 @@ public class PlayerMovement : MonoBehaviour
 		else
 			IsSliding = false;
 		#endregion
+
+		if(!IsDashing)
+			beingExplode = false;
 
 		#region GRAVITY
 		if (!_isDashAttacking)
@@ -377,18 +387,35 @@ public class PlayerMovement : MonoBehaviour
 		}
 		#endregion
 
-		CheckAttackDir();
+		#region CROUCH CHECK
 
-		if(frontTouchMud || backTouchMud)
-			touchMud = true;
+		if(CanCrouch() && downKeyPressed)
+		{
+			IsCrouching = true;
+			standCollider.SetActive(false);
+			crouchCollider.SetActive(true);
+			Center.transform.localPosition = new Vector3(0 , -0.7f , 0);
+			
+		}
 		else
-			touchMud = false;
+		{
+			IsCrouching = false;
+			standCollider.SetActive(true);
+			crouchCollider.SetActive(false);
+			Center.transform.localPosition = new Vector3(0 , -0.435f , 0);
+		}
 
-		if(!IsDashing)
-			beingExplode = false;
+		#endregion
+		
+		#region PUSH CHECK
+		if(CanPush() && LastPressedPushTime > 0)
+		{
+			Push();
+		}
+		#endregion
 
-
-    }
+		CheckAttackDir();
+	}
 
     private void FixedUpdate()
 	{
@@ -429,6 +456,10 @@ public class PlayerMovement : MonoBehaviour
 	{
 		LastPressedDashTime = Data.dashInputBufferTime;
 	}
+	public void OnPushInput()
+	{
+		LastPressedPushTime = Data.pushInputBufferTime;
+	}
     #endregion
 
     #region GENERAL METHODS
@@ -452,13 +483,14 @@ public class PlayerMovement : MonoBehaviour
 		Time.timeScale = 1;
 	}
     #endregion
-
 	//MOVEMENT METHODS
     #region RUN METHODS
     private void Run(float lerpAmount)
 	{
 		//Calculate the direction we want to move in and our desired velocity
 		float targetSpeed = _moveInput.x * Data.runMaxSpeed;
+		if(IsCrouching)
+			targetSpeed = 0f;
 		//We can reduce are control using Lerp() this smooths changes to are direction and speed
 		if(LastOnWindTime < 0)
 		{
@@ -585,7 +617,7 @@ public class PlayerMovement : MonoBehaviour
 	private IEnumerator StartDash(Vector2 dir)
 	{
 
-		CreateDashWind();
+		CreateDashWind(dir);
 		//CheckDashParticleDir();
 		//windTrail.SetActive(true);
 		//Overall this method of dashing aims to mimic Celeste, if you're looking for
@@ -664,7 +696,7 @@ public class PlayerMovement : MonoBehaviour
 		_dashRefilling = true;
 		yield return new WaitForSeconds(Data.dashRefillTime);
 		_dashRefilling = false;
-		_dashesLeft = Mathf.Min(Data.dashAmount, _dashesLeft + 1);
+		_dashesLeft = Mathf.Min(Data.dashAmount, _dashesLeft + amount);
 	}
 	#endregion
 
@@ -687,7 +719,6 @@ public class PlayerMovement : MonoBehaviour
 		RB.AddForce(movement * Vector2.down);
 	}
     #endregion
-
 
     #region CHECK METHODS
     public void CheckDirectionToFace(bool isMovingRight)
@@ -736,8 +767,32 @@ public class PlayerMovement : MonoBehaviour
 		else
 			return false;
 	}
-    #endregion
 
+	public bool CanCrouch()
+	{
+		if(!IsJumping && !IsDashing && LastOnGroundTime > 0 && !IsSliding && !IsWallJumping)
+		{
+			//Debug.Log("yes");
+			return true;
+		}
+		else
+			return false;
+	}
+
+	public bool CanPush()
+	{
+		if(IsCrouching && !_pushRefilling)
+		{
+			StartCoroutine(nameof(RefillPush), 1);
+		}
+		return _pushesLeft > 0;
+	}
+
+	public bool OnWallMud()
+	{
+		return frontWallMud || backWallMud;
+	}
+	#endregion
 
     #region EDITOR METHODS
     private void OnDrawGizmosSelected()
@@ -747,39 +802,50 @@ public class PlayerMovement : MonoBehaviour
 		Gizmos.color = Color.blue;
 		Gizmos.DrawWireCube(_frontWallCheckPoint.position, _wallCheckSize);
 		Gizmos.DrawWireCube(_backWallCheckPoint.position, _wallCheckSize);
+		if(IsCrouching)
+			Gizmos.DrawWireCube(_barrelCheckPoint.position, _pushCheckSize);
 	}
     #endregion
 
+	#region ANIMATION CONTROL
 	void SwitchAnim()
     {
-        anim.SetFloat("IsRunning" , Mathf.Abs(RB.velocity.x));
+        Anim.SetFloat("IsRunning" , Mathf.Abs(RB.velocity.x));
 
         if(Physics2D.OverlapBox(_groundCheckPoint.position, _groundCheckSize, 0, _groundLayer) && !IsJumping){
-            anim.SetBool("IsFalling", false);
+            Anim.SetBool("IsFalling", false);
         }
         else if(!Physics2D.OverlapBox(_groundCheckPoint.position, _groundCheckSize, 0, _groundLayer) && IsJumping && RB.velocity.y > 0)
         {
-            anim.SetBool("IsJumping" , true);
+            Anim.SetBool("IsJumping" , true);
         }
         else if (RB.velocity.y < 0)
         {
-            anim.SetBool("IsJumping" , false);
-            anim.SetBool("IsFalling" , true);
+            Anim.SetBool("IsJumping" , false);
+            Anim.SetBool("IsFalling" , true);
         }
+		if(IsCrouching)
+		{
+			Anim.SetBool("IsCrouching" , true);
+		}
+		else
+			Anim.SetBool("IsCrouching" , false);
     }
+	#endregion
 
+	#region DIRECTION METHODS
 	void CheckAttackDir()
 	{
 		//bool isLeftWallSliding = false , isRightWallSliding = false;
 
 		if(IsSliding)
 		{
-			if(touchMud && LastOnWallRightTime > 0 && rightKeyPressed && transform.localScale.x == 1)
+			if(OnWallMud() && LastOnWallRightTime > 0 && rightKeyPressed && transform.localScale.x == 1)
 			{
 				Turn();	
 			}
 			
-			if(touchMud && LastOnWallLeftTime > 0 && leftKeyPressed && transform.localScale.x == -1)
+			if(OnWallMud() && LastOnWallLeftTime > 0 && leftKeyPressed && transform.localScale.x == -1)
 			{
 				Turn();
 			}
@@ -795,12 +861,12 @@ public class PlayerMovement : MonoBehaviour
 			weapon.rotation = Quaternion.Euler(0 , 0 , 90 * transform.localScale.x);
 			FacingUp = true;
 		}
-		else if(_moveInput.y == -1 && _moveInput.x != 0 && (IsJumping || _isJumpFalling || !isGround))
+		else if(_moveInput.y == -1 && _moveInput.x != 0 && (IsJumping || _isJumpFalling || LastOnGroundTime > 0))
 		{
 			weapon.rotation = Quaternion.Euler(0 , 0 , -45 * transform.localScale.x);
 			FacingDown = true;
 		}
-		else if(_moveInput.y == -1 && _moveInput.x == 0 && (IsJumping || _isJumpFalling || !isGround))
+		else if(_moveInput.y == -1 && _moveInput.x == 0 && (IsJumping || _isJumpFalling || LastOnGroundTime > 0))
 		{
 			weapon.rotation = Quaternion.Euler(0 , 0 , -90 * transform.localScale.x);
 			FacingDown = true;
@@ -810,42 +876,7 @@ public class PlayerMovement : MonoBehaviour
 			weapon.rotation = Quaternion.Euler(0 , 0 , 0);
 		}
 	}
-
-	/*
-	void CheckDashParticleDir()
-	{
-		if(true)
-		{
-			VisualEffect dashWindvfx = dashWindVFX.GetComponent<VisualEffect>();
-
-			if(_moveInput.y == 1 && _moveInput.x != 0)
-			{
-				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , 45 * transform.localScale.x);
-				FacingUp = true;
-			}
-			else if(_moveInput.y == 1 && _moveInput.x == 0)
-			{
-				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , 90 * transform.localScale.x);
-				FacingUp = true;
-			}
-			else if(_moveInput.y == -1 && _moveInput.x != 0 && (IsJumping || _isJumpFalling || !isGround))
-			{
-				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , -45 * transform.localScale.x);
-				FacingDown = true;
-			}
-			else if(_moveInput.y == -1 && _moveInput.x == 0 && (IsJumping || _isJumpFalling || !isGround))
-			{
-				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , -90 * transform.localScale.x);
-				FacingDown = true;
-			}
-			else
-			{
-				dashParticlePivot.rotation = Quaternion.Euler(0 , 0 , 0 * transform.localScale.x);
-			}
-		}
-	}
-	*/
-	void CheckDashWindDir(GameObject dashWind)
+	void CheckDashWindDir(GameObject dashWind , Vector2 dir)
 	{
 		if(true)
 		{
@@ -854,37 +885,39 @@ public class PlayerMovement : MonoBehaviour
 
 			if(_moveInput.y == 1)
 			{
-				dashWindvfx.SetVector3("WindRotate" , new Vector3(1 , -1*transform.localScale.x*inputXAbs , 0));
-				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-transform.localScale.x*inputXAbs , -1 , 0));
+				dashWindvfx.SetVector3("WindRotate" , new Vector3(dir.y , -dir.x*inputXAbs , 0));
+				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-dir.x*inputXAbs , -1 , 0));
 			}
-			else if(_moveInput.y == -1 && (IsJumping || _isJumpFalling || !isGround))
+			else if(_moveInput.y == -1 && (IsJumping || _isJumpFalling || LastOnGroundTime < 0))
 			{
-				dashWindvfx.SetVector3("WindRotate" , new Vector3(-1 , -1*transform.localScale.x*inputXAbs , 0));
-				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-transform.localScale.x*inputXAbs , 1 , 0));
+				dashWindvfx.SetVector3("WindRotate" , new Vector3(dir.y , -dir.x*inputXAbs , 0));
+				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-dir.x*inputXAbs , 1 , 0));
 			}
 			else
 			{
-				dashWindvfx.SetVector3("WindRotate" , new Vector3(0 , -1*transform.localScale.x , 0));
-				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-transform.localScale.x , 0 , 0));
+				dashWindvfx.SetVector3("WindRotate" , new Vector3(0 , -dir.x , 0));
+				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-dir.x, 0 , 0));
 			}
 		}
 	}
+	#endregion
 
+	#region FIRE METHODS
 	void Fire() 
 	{
 		if(FacingUp)
 		{
-			anim.Play("FireUp");
+			Anim.Play("FireUp");
 			FacingUp = false;
 		}
 		else if(FacingDown)
 		{
-			anim.Play("FireDown");
+			Anim.Play("FireDown");
 			FacingDown = false;
 		}
 		else
 		{
-			anim.Play("FireFront");
+			Anim.Play("FireFront");
 		}
 	}
 	void UsingFire()
@@ -892,15 +925,35 @@ public class PlayerMovement : MonoBehaviour
 		BarrelScript fire = gameObject.GetComponentInChildren<BarrelScript>();
 		fire.Fireball();
 	}
+	#endregion
 
-	private void OnCollisionEnter2D(Collision2D other) {
-		if(other.gameObject.tag == "Explosive")
+	#region PUSH METHODS
+	private void Push()
+	{
+		LastPressedPushTime = 0;
+		_pushesLeft--;
+
+		if(airMovableObj != null)
 		{
-			beingExplode = true;
+			foreach(var obj in airMovableObj)
+			{
+				Rigidbody2D objRB = obj.GetComponent<Rigidbody2D>();
+				objRB.AddForce(new Vector2(transform.localScale.x*Data.pushForce , 0) , ForceMode2D.Impulse);
+				RB.AddForce(new Vector2(-transform.localScale.x*Data.pushKnockbackForce , 0) , ForceMode2D.Impulse);
+			}
 		}
-		//beingExplode = false;
 	}
+	private IEnumerator RefillPush(int amount)
+	{
+		//SHoet cooldown, so we can't constantly dash along the ground, again this is the implementation in Celeste, feel free to change it up
+		_pushRefilling = true;
+		yield return new WaitForSeconds(Data.pushRefillTime);
+		_pushRefilling = false;
+		_pushesLeft = Mathf.Min(Data.pushAmount, _dashesLeft + amount);
+	}
+	#endregion
 
+	#region PS AND VFX METHODS
 	void CreateJumpDust()
 	{
 		jumpDust.Play();
@@ -918,34 +971,44 @@ public class PlayerMovement : MonoBehaviour
 	}
 	*/
 
-	void CreateDashWind()
+	void CreateDashWind(Vector2 dir)
 	{
-		var dashWind = Instantiate(dashWindVFX , windCenter.transform.position , transform.rotation);
-		var dashWindSecond = Instantiate(dashWindVFXSecond , windCenter.transform.position , transform.rotation);
+		var dashWind = Instantiate(dashWindVFX , Center.transform.position , transform.rotation);
+		var dashWindSecond = Instantiate(dashWindVFXSecond , Center.transform.position , transform.rotation);
 
-		dashWindSecond.transform.parent = windCenter.transform;
+		dashWindSecond.transform.parent = Center.transform;
 		//dashWind.transform.parent = windCenter.transform;
 
 		dashWind.SetActive(true);
 		dashWindSecond.SetActive(true);
 
-		CheckDashWindDir(dashWind);
-		CheckDashWindDir(dashWindSecond);
+		CheckDashWindDir(dashWind , dir);
+		CheckDashWindDir(dashWindSecond , dir);
 
 		Destroy(dashWind , 1f);
 		Destroy(dashWindSecond , 1f);
 	}
+	#endregion
 
+	#region TRIGGER METHODS
 	private void OnTriggerStay2D(Collider2D trigger) {
-		 if(trigger.tag == "WindArea")
-		 {
+		if(trigger.tag == "WindArea")
+		{
 			LastOnWindTime = Data.coyoteTime;
 			WindArea wind = trigger.gameObject.GetComponent<WindArea>();
 			if(wind.isHorizontal)
 				inHorizontalWind = true;
 			else
 				inHorizontalWind = false;
-		 }
+		}
+	}
+	#endregion
+private void OnCollisionEnter2D(Collision2D other) {
+		if(other.gameObject.tag == "Explosive")
+		{
+			beingExplode = true;
+		}
+		//beingExplode = false;
 	}
 }
 

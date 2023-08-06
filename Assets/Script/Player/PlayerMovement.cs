@@ -238,8 +238,10 @@ public class PlayerMovement : MonoBehaviour
 				backWallMud = false;
 
 			//Air-movable Object Check
-			if(Physics2D.OverlapBox(_barrelCheckPoint.position, _pushCheckSize, 0, _airMovable))
+			if(Physics2D.OverlapBox(_barrelCheckPoint.position, _pushCheckSize, 0, _airMovable) && IsCrouching)
 				airMovableObj = Physics2D.OverlapBoxAll(_barrelCheckPoint.position, _pushCheckSize, 0, _airMovable);
+			else
+				airMovableObj = null;
 			
 
 		}
@@ -408,7 +410,7 @@ public class PlayerMovement : MonoBehaviour
 		#endregion
 		
 		#region PUSH CHECK
-		if(CanPush() && LastPressedPushTime > 0)
+		if(CanPush() && LastPressedPushTime > 0 && airMovableObj != null)
 		{
 			Push();
 		}
@@ -770,7 +772,7 @@ public class PlayerMovement : MonoBehaviour
 
 	public bool CanCrouch()
 	{
-		if(!IsJumping && !IsDashing && LastOnGroundTime > 0 && !IsSliding && !IsWallJumping)
+		if(!IsJumping && !IsDashing && LastOnGroundTime > 0 && !IsSliding && !IsWallJumping && !_isJumpFalling)
 		{
 			//Debug.Log("yes");
 			return true;
@@ -861,12 +863,12 @@ public class PlayerMovement : MonoBehaviour
 			weapon.rotation = Quaternion.Euler(0 , 0 , 90 * transform.localScale.x);
 			FacingUp = true;
 		}
-		else if(_moveInput.y == -1 && _moveInput.x != 0 && (IsJumping || _isJumpFalling || LastOnGroundTime > 0))
+		else if(_moveInput.y == -1 && _moveInput.x != 0 && (IsJumping || _isJumpFalling || LastOnGroundTime < 0))
 		{
 			weapon.rotation = Quaternion.Euler(0 , 0 , -45 * transform.localScale.x);
 			FacingDown = true;
 		}
-		else if(_moveInput.y == -1 && _moveInput.x == 0 && (IsJumping || _isJumpFalling || LastOnGroundTime > 0))
+		else if(_moveInput.y == -1 && _moveInput.x == 0 && (IsJumping || _isJumpFalling || LastOnGroundTime < 0))
 		{
 			weapon.rotation = Quaternion.Euler(0 , 0 , -90 * transform.localScale.x);
 			FacingDown = true;
@@ -905,21 +907,26 @@ public class PlayerMovement : MonoBehaviour
 	#region FIRE METHODS
 	void Fire() 
 	{
-		if(FacingUp)
+		if(!IsCrouching)
 		{
-			Anim.Play("FireUp");
-			FacingUp = false;
-		}
-		else if(FacingDown)
-		{
-			Anim.Play("FireDown");
-			FacingDown = false;
-		}
-		else
-		{
-			Anim.Play("FireFront");
+			if(FacingUp)
+			{
+				Anim.Play("FireUp");
+				FacingUp = false;
+			}
+			else if(FacingDown)
+			{
+				Anim.Play("FireDown");
+				FacingDown = false;
+			}
+			else
+			{
+				Anim.Play("FireFront");
+			}
 		}
 	}
+
+	//動畫執行時會執行此函式
 	void UsingFire()
 	{
 		BarrelScript fire = gameObject.GetComponentInChildren<BarrelScript>();
@@ -942,6 +949,7 @@ public class PlayerMovement : MonoBehaviour
 				RB.AddForce(new Vector2(-transform.localScale.x*Data.pushKnockbackForce , 0) , ForceMode2D.Impulse);
 			}
 		}
+		airMovableObj = null;
 	}
 	private IEnumerator RefillPush(int amount)
 	{

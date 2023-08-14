@@ -14,7 +14,7 @@ public class PlayerMovement : MonoBehaviour
 	//Scriptable object which holds all the player's movement parameters. If you don't want to use it
 	//just paste in all the parameters, though you will need to manuly change all references in this script
 	public PlayerData Data;
-
+    public BulletTime bulletTime;
 	#region COMPONENTS
     public Rigidbody2D RB { get; private set; }
 	public Animator Anim { get; private set; }
@@ -931,6 +931,7 @@ public class PlayerMovement : MonoBehaviour
 	{
 		BarrelScript fire = gameObject.GetComponentInChildren<BarrelScript>();
 		fire.Fireball();
+		bulletTime.DoBulletTime();
 	}
 	#endregion
 

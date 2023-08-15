@@ -7,6 +7,7 @@
  */
 
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.VFX;
 public class PlayerMovement : MonoBehaviour
@@ -30,6 +31,7 @@ public class PlayerMovement : MonoBehaviour
 	public bool IsDashing { get; private set; }
 	public bool IsSliding { get; private set; }
 	public bool IsCrouching { get; private set; }
+	//public bool IsGrabbing { get; private set; }
 
 	//Timers (also all fields, could be private and a method returning a bool could be used)
 	public float LastOnGroundTime { get; private set; }
@@ -41,6 +43,9 @@ public class PlayerMovement : MonoBehaviour
 	public float LastPressedJumpTime { get; private set; }
 	public float LastPressedDashTime { get; private set; }
 	public float LastPressedPushTime { get; private set; }
+	public float LastPressedIceTime { get; private set; }
+	public float LastPressedGrabTime { get; private set; }
+
 	//Jump
 	private bool _isJumpCut;
 	private bool _isJumpFalling;
@@ -60,13 +65,23 @@ public class PlayerMovement : MonoBehaviour
 	private bool backWallMud;
 
 	//Push
-	private float _pushesLeft;
-	private bool _pushRefilling;
-	private Collider2D[] airMovableObj;
+	//private float _pushesLeft;
+	//private bool _pushRefilling;
+	//private Collider2D airMovableObj;
+
+	//Ice
+	private float _icesLeft;
+	private bool _iceRefilling;
+	private bool isBlocking;
+	private Queue<GameObject> iceQueue = new Queue<GameObject>();
+	private GameObject grabbedObj;
+	RaycastHit2D hitObj;
+
 
 	//Direction
 	private bool FacingUp;
 	private bool FacingDown;
+	private float rayAngle;
 
 	//Effects
 	private bool inHorizontalWind;
@@ -78,6 +93,7 @@ public class PlayerMovement : MonoBehaviour
 	private bool leftKeyPressed;
 	private bool rightKeyPressed;
 	private bool downKeyPressed;
+	private bool upKeyPressed;
 	#endregion
 
 	#region CHECK PARAMETERS
@@ -93,30 +109,46 @@ public class PlayerMovement : MonoBehaviour
 	[Space(5)]
 	[SerializeField] private Transform _barrelCheckPoint;
 	[SerializeField] private Vector2 _pushCheckSize = new Vector2(1f, 0.5f);
+	[SerializeField] private Vector2 _iceCheckSize = new Vector2(1f, 1f);
+	[Space(5)]
+	[SerializeField] private Transform iceOutPoint;
+	[SerializeField] private Transform grabPoint;
+	[SerializeField] private float grabDistance;
     #endregion
 
     #region LAYERS & TAGS
     [Header("Layers & Tags")]
 	[SerializeField] private LayerMask _groundLayer;
-	[SerializeField] private LayerMask _airMovable;
+	//[SerializeField] private LayerMask _airMovable;
 	//[SerializeField] private LayerMask _mudLayer;
 	#endregion
 
-	#region OBJECTS & EFFECTS
-	[Header("Objects & Effects")]
-	public GameObject Center;
+	#region OBJECTS
+	[Header("Objects")]
+	public GameObject center;
 	public Transform weapon;
+	public GameObject ice;
 	public GameObject standCollider;
 	public GameObject crouchCollider;
+	#endregion
+
+	#region EFFECTS
+	[Header("Effects")]
 	public ParticleSystem jumpDust;
 	public GameObject dashWindVFX;
 	public GameObject dashWindVFXSecond;
+	#endregion
+
+	#region CREATABLE OBJECTS
+	[Header("Creatable Objects")]
+	public float icesMaxNumber;
 	#endregion
 
 	#region  FOR DEBUG
 	[Header("Debug")]
 	public float movement;
 	public bool beingExplode;
+	public bool IsGrabbing;
 	#endregion
 	//public ParticleSystem dashParticle;
 	//public Transform dashParticlePivot;
@@ -148,6 +180,8 @@ public class PlayerMovement : MonoBehaviour
 		LastPressedJumpTime -= Time.deltaTime;
 		LastPressedDashTime -= Time.deltaTime;
 		LastPressedPushTime -= Time.deltaTime;
+		LastPressedIceTime -= Time.deltaTime;
+		LastPressedGrabTime -= Time.deltaTime;
 		#endregion
 
 		#region INPUT HANDLER
@@ -167,7 +201,10 @@ public class PlayerMovement : MonoBehaviour
 			downKeyPressed = true;
 		else
 			downKeyPressed = false;
-
+		if(Input.GetKey(KeyCode.UpArrow))
+			upKeyPressed = true;
+		else
+			upKeyPressed = false;
 
 		if (_moveInput.x != 0)
 			CheckDirectionToFace(_moveInput.x > 0);
@@ -181,13 +218,16 @@ public class PlayerMovement : MonoBehaviour
 		{
 			OnJumpUpInput();
 		}
-
-		if (Input.GetKeyDown(KeyCode.X))
+		if (Input.GetButtonDown("Air"))
 		{
 			OnDashInput();
 			OnPushInput();
 		}
-		if(Input.GetButtonDown("Fire1"))
+		if(Input.GetButtonDown("Water"))
+		{
+			OnIceInput();
+		}
+		if(Input.GetButtonDown("Fire"))
 		{
 			Fire();
 		}
@@ -204,6 +244,7 @@ public class PlayerMovement : MonoBehaviour
 
 				if(Physics2D.OverlapBox(_groundCheckPoint.position, _groundCheckSize, 0, _groundLayer).gameObject.tag == "Mud")
 					LastOnMudTime = Data.coyoteTime;
+				
             }
 
 			//Right Wall Check
@@ -238,13 +279,29 @@ public class PlayerMovement : MonoBehaviour
 				backWallMud = false;
 
 			//Air-movable Object Check
-			if(Physics2D.OverlapBox(_barrelCheckPoint.position, _pushCheckSize, 0, _airMovable) && IsCrouching)
-				airMovableObj = Physics2D.OverlapBoxAll(_barrelCheckPoint.position, _pushCheckSize, 0, _airMovable);
+			/*
+			if(Physics2D.OverlapBox(_barrelCheckPoint.position, _pushCheckSize, 0, _groundLayer) && IsCrouching)
+			{
+				if(Physics2D.OverlapBox(_barrelCheckPoint.position, _pushCheckSize, 0, _groundLayer).tag == "AirMovable")
+					airMovableObj = Physics2D.OverlapBox(_barrelCheckPoint.position, _pushCheckSize, 0, _groundLayer);
+				else
+					airMovableObj = null;
+			}
 			else
 				airMovableObj = null;
 			
-
+			*/
+			//Blocking Ice-Out-Point Check
+			if(Physics2D.OverlapBox(iceOutPoint.position , _iceCheckSize , 0))
+			{
+				isBlocking = true;
+			}
+			else
+				isBlocking = false;
+			
+			
 		}
+		hitObj = Physics2D.Raycast(center.transform.position , new Vector2(Mathf.Cos(rayAngle) * transform.localScale.x , Mathf.Sin(rayAngle)) , grabDistance , _groundLayer);
 		#endregion
 
 		#region JUMP CHECKS
@@ -297,7 +354,7 @@ public class PlayerMovement : MonoBehaviour
 		#endregion
 
 		#region DASH CHECKS
-		if (CanDash() && LastPressedDashTime > 0 && !IsCrouching)
+		if (CanDash() && LastPressedDashTime > 0 && !IsCrouching && !IsGrabbing)
 		{
 			//Freeze game for split second. Adds juiciness and a bit of forgiveness over directional input
 			Sleep(Data.dashSleepTime); 
@@ -396,7 +453,7 @@ public class PlayerMovement : MonoBehaviour
 			IsCrouching = true;
 			standCollider.SetActive(false);
 			crouchCollider.SetActive(true);
-			Center.transform.localPosition = new Vector3(0 , -0.7f , 0);
+			center.transform.localPosition = new Vector3(0 , -0.7f , 0);
 			
 		}
 		else
@@ -404,16 +461,53 @@ public class PlayerMovement : MonoBehaviour
 			IsCrouching = false;
 			standCollider.SetActive(true);
 			crouchCollider.SetActive(false);
-			Center.transform.localPosition = new Vector3(0 , -0.435f , 0);
+			center.transform.localPosition = new Vector3(0 , -0.435f , 0);
 		}
 
 		#endregion
 		
 		#region PUSH CHECK
+		/*
 		if(CanPush() && LastPressedPushTime > 0 && airMovableObj != null)
 		{
 			Push();
 		}
+		*/
+		if(CanPush() && LastPressedPushTime > 0)
+		{
+			Push();
+		}
+		
+		#endregion
+
+		#region CREATE ICE CHECK
+		if(CanCreateIce() && LastPressedIceTime > 0 && !isBlocking && !IsGrabbing && !IsDashing)
+		{
+			Debug.Log("create");
+			CreateIce();
+		}
+		#endregion
+
+		#region ICE NUMBER CHECK
+		if(iceQueue.Count > icesMaxNumber)
+		{
+			Destroy(iceQueue.Peek());
+			iceQueue.Dequeue();
+		}
+		#endregion
+
+		#region GRAB CHECK
+		if(CanGrab() && LastPressedGrabTime > 0)
+		{
+			Grab();
+		}
+		else if(IsGrabbing && LastPressedGrabTime > 0)
+		{
+			Release();
+
+		}
+		if(grabbedObj == null)
+			IsGrabbing = false;
 		#endregion
 
 		CheckAttackDir();
@@ -461,6 +555,11 @@ public class PlayerMovement : MonoBehaviour
 	public void OnPushInput()
 	{
 		LastPressedPushTime = Data.pushInputBufferTime;
+	}
+	public void OnIceInput()
+	{
+		LastPressedIceTime = Data.iceInputBufferTime;
+		LastPressedGrabTime = Data.grabInputBufferTime;
 	}
     #endregion
 
@@ -783,17 +882,40 @@ public class PlayerMovement : MonoBehaviour
 
 	public bool CanPush()
 	{
+		/*
 		if(IsCrouching && !_pushRefilling)
 		{
 			StartCoroutine(nameof(RefillPush), 1);
 		}
 		return _pushesLeft > 0;
+		*/
+		return IsGrabbing;
+	}
+
+	public bool CanCreateIce()
+	{
+		if(!_iceRefilling)
+		{
+			StartCoroutine(nameof(RefillIce), 1);
+		}
+		return _icesLeft > 0;
 	}
 
 	public bool OnWallMud()
 	{
 		return frontWallMud || backWallMud;
 	}
+
+	public bool CanGrab()
+	{
+		if(hitObj.collider != null && hitObj.collider.gameObject.tag == "AirMovable" && !IsGrabbing)
+		{
+			return true;
+		}
+		else
+			return false;
+	}
+
 	#endregion
 
     #region EDITOR METHODS
@@ -806,6 +928,9 @@ public class PlayerMovement : MonoBehaviour
 		Gizmos.DrawWireCube(_backWallCheckPoint.position, _wallCheckSize);
 		if(IsCrouching)
 			Gizmos.DrawWireCube(_barrelCheckPoint.position, _pushCheckSize);
+		Gizmos.DrawWireCube(iceOutPoint.position, _iceCheckSize);
+
+		Debug.DrawRay(center.transform.position , new Vector2(Mathf.Cos(rayAngle) * transform.localScale.x , Mathf.Sin(rayAngle)) * grabDistance);
 	}
     #endregion
 
@@ -853,29 +978,34 @@ public class PlayerMovement : MonoBehaviour
 			}
 		}
 
-		if(_moveInput.y == 1 && _moveInput.x != 0)
+		if((_moveInput.y == 1 && _moveInput.x != 0) || (upKeyPressed && IsCrouching && _moveInput.x != 0))
 		{
 			weapon.rotation = Quaternion.Euler(0 , 0 , 45 * transform.localScale.x);
 			FacingUp = true;
+			rayAngle = 45 * Mathf.Deg2Rad;
 		}
-		else if(_moveInput.y == 1 && _moveInput.x == 0)
+		else if(_moveInput.y == 1 && _moveInput.x == 0 || (upKeyPressed && IsCrouching && _moveInput.x == 0))
 		{
 			weapon.rotation = Quaternion.Euler(0 , 0 , 90 * transform.localScale.x);
 			FacingUp = true;
+			rayAngle = 90 * Mathf.Deg2Rad;
 		}
 		else if(_moveInput.y == -1 && _moveInput.x != 0 && (IsJumping || _isJumpFalling || LastOnGroundTime < 0))
 		{
 			weapon.rotation = Quaternion.Euler(0 , 0 , -45 * transform.localScale.x);
 			FacingDown = true;
+			rayAngle = -45 * Mathf.Deg2Rad;
 		}
 		else if(_moveInput.y == -1 && _moveInput.x == 0 && (IsJumping || _isJumpFalling || LastOnGroundTime < 0))
 		{
 			weapon.rotation = Quaternion.Euler(0 , 0 , -90 * transform.localScale.x);
 			FacingDown = true;
+			rayAngle = -90 * Mathf.Deg2Rad;
 		}
 		else
 		{
 			weapon.rotation = Quaternion.Euler(0 , 0 , 0);
+			rayAngle = 0 * Mathf.Deg2Rad;
 		}
 	}
 	void CheckDashWindDir(GameObject dashWind , Vector2 dir)
@@ -907,7 +1037,7 @@ public class PlayerMovement : MonoBehaviour
 	#region FIRE METHODS
 	void Fire() 
 	{
-		if(!IsCrouching)
+		if(true)
 		{
 			if(FacingUp)
 			{
@@ -937,20 +1067,33 @@ public class PlayerMovement : MonoBehaviour
 	#region PUSH METHODS
 	private void Push()
 	{
+		/*
 		LastPressedPushTime = 0;
 		_pushesLeft--;
 
 		if(airMovableObj != null)
 		{
-			foreach(var obj in airMovableObj)
-			{
-				Rigidbody2D objRB = obj.GetComponent<Rigidbody2D>();
-				objRB.AddForce(new Vector2(transform.localScale.x*Data.pushForce , 0) , ForceMode2D.Impulse);
-				RB.AddForce(new Vector2(-transform.localScale.x*Data.pushKnockbackForce , 0) , ForceMode2D.Impulse);
-			}
+			Rigidbody2D objRB = airMovableObj.GetComponent<Rigidbody2D>();
+			objRB.AddForce(new Vector2(transform.localScale.x*Data.pushForce , 0) , ForceMode2D.Impulse);
+			RB.AddForce(new Vector2(-transform.localScale.x*Data.pushKnockbackForce , 0) , ForceMode2D.Impulse);
 		}
 		airMovableObj = null;
+		*/
+		LastPressedPushTime = 0;
+		LastPressedDashTime = 0;
+		LastPressedGrabTime = 0;
+		LastPressedIceTime = 0;
+
+		grabbedObj.GetComponent<Rigidbody2D>().isKinematic = false;
+		grabbedObj.transform.SetParent(null);
+
+		Rigidbody2D objRB = grabbedObj.GetComponent<Rigidbody2D>();
+		objRB.AddForce(new Vector2(Mathf.Cos(rayAngle) * transform.localScale.x , Mathf.Sin(rayAngle))*Data.pushForce , ForceMode2D.Impulse);
+
+		grabbedObj = null;
+		IsGrabbing = false;
 	}
+	/*
 	private IEnumerator RefillPush(int amount)
 	{
 		//SHoet cooldown, so we can't constantly dash along the ground, again this is the implementation in Celeste, feel free to change it up
@@ -958,6 +1101,50 @@ public class PlayerMovement : MonoBehaviour
 		yield return new WaitForSeconds(Data.pushRefillTime);
 		_pushRefilling = false;
 		_pushesLeft = Mathf.Min(Data.pushAmount, _dashesLeft + amount);
+	}
+	*/
+	#endregion
+
+	#region ICE METHODS
+	private void CreateIce()
+	{
+		LastPressedIceTime = 0;
+		LastPressedGrabTime = 0;
+		_icesLeft--;
+
+		var iceObj = Instantiate(ice , grabPoint.transform.position , transform.rotation);
+		iceObj.SetActive(true);
+		iceQueue.Enqueue(iceObj);
+	}
+	private IEnumerator RefillIce(int amount)
+	{
+		//SHoet cooldown, so we can't constantly dash along the ground, again this is the implementation in Celeste, feel free to change it up
+		_iceRefilling = true;
+		yield return new WaitForSeconds(Data.iceRefillTime);
+		_iceRefilling = false;
+		_icesLeft = Mathf.Min(Data.iceAmount, _icesLeft + amount);
+	}
+	#endregion
+
+	#region GRAB METHODS
+	private void Grab()
+	{
+		LastPressedGrabTime = 0;
+		LastPressedIceTime = 0;
+		grabbedObj = hitObj.collider.gameObject;
+		grabbedObj.GetComponent<Rigidbody2D>().isKinematic = true;
+		grabbedObj.transform.position = grabPoint.position;
+		grabbedObj.transform.SetParent(grabPoint);
+		IsGrabbing = true;
+	}
+	private void Release()
+	{
+		LastPressedGrabTime = 0;
+		LastPressedIceTime = 0;
+		grabbedObj.GetComponent<Rigidbody2D>().isKinematic = false;
+		grabbedObj.transform.SetParent(null);
+		grabbedObj = null;
+		IsGrabbing = false;
 	}
 	#endregion
 
@@ -981,10 +1168,10 @@ public class PlayerMovement : MonoBehaviour
 
 	void CreateDashWind(Vector2 dir)
 	{
-		var dashWind = Instantiate(dashWindVFX , Center.transform.position , transform.rotation);
-		var dashWindSecond = Instantiate(dashWindVFXSecond , Center.transform.position , transform.rotation);
+		var dashWind = Instantiate(dashWindVFX , center.transform.position , transform.rotation);
+		var dashWindSecond = Instantiate(dashWindVFXSecond , center.transform.position , transform.rotation);
 
-		dashWindSecond.transform.parent = Center.transform;
+		dashWindSecond.transform.parent = center.transform;
 		//dashWind.transform.parent = windCenter.transform;
 
 		dashWind.SetActive(true);

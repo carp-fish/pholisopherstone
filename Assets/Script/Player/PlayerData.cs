@@ -85,6 +85,15 @@ public class PlayerData : ScriptableObject
 	[Space(5)]
 	public float pushRefillTime;
 	[Range(0.01f, 0.1f)] public float pushInputBufferTime;
+
+	[Header("Ice")]
+	public int iceAmount;
+	public int icePushForce;
+	//public int pushKnockbackForce;
+	[Space(5)]
+	public float iceRefillTime;
+	[Range(0.01f, 0.1f)] public float iceInputBufferTime;
+	[Range(0.01f, 0.1f)] public float grabInputBufferTime;
 	
 
 	//Unity Callback, called when the inspector updates

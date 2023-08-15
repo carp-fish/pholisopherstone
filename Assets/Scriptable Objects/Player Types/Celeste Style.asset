@@ -56,3 +56,8 @@ MonoBehaviour:
   pushKnockbackForce: 20
   pushRefillTime: 0.1
   pushInputBufferTime: 0.1
+  iceAmount: 1
+  icePushForce: 150
+  iceRefillTime: 0.1
+  iceInputBufferTime: 0.1
+  grabInputBufferTime: 0.05

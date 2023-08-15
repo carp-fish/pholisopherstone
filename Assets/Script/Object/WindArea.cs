@@ -32,6 +32,8 @@ public class WindArea : MonoBehaviour
 
     }
     private void OnTriggerEnter2D(Collider2D collision) {
+        if(collision.tag == "WindArea")
+            return;
         RB = collision.GetComponent<Rigidbody2D>();
 
         if(RB != null)
@@ -48,6 +50,9 @@ public class WindArea : MonoBehaviour
 
     }
     private void OnTriggerStay2D(Collider2D collision) {
+
+        if(collision.tag == "WindArea")
+            return;
         RB = collision.GetComponentInParent<Rigidbody2D>();
 
         windDir = new Vector3(Mathf.Cos(angleRad) , Mathf.Sin(angleRad) , 0);
@@ -104,6 +109,8 @@ public class WindArea : MonoBehaviour
         */
     }
     private void OnTriggerExit2D(Collider2D collision) {
+        if(collision.tag == "WindArea")
+            return;
         Rigidbody2D RB = collision.GetComponentInParent<Rigidbody2D>();
         inWind = false;
         if(RB != null)

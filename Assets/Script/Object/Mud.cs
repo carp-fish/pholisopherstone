@@ -13,7 +13,7 @@ public class Mud : MonoBehaviour
 
     private void OnCollisionEnter2D(Collision2D collision) 
     {
-        PlayerMovement player = collision.gameObject.GetComponent<PlayerMovement>();
+        PlayerControl player = collision.gameObject.GetComponent<PlayerControl>();
 
         if(collision.gameObject.tag == "Player" && player.LastOnMudTime > 0)
         {
@@ -27,7 +27,7 @@ public class Mud : MonoBehaviour
         if(collision.gameObject.tag == "Player")
         {
             //Sleep(0.1f);
-            PlayerMovement player = collision.gameObject.GetComponent<PlayerMovement>();
+            PlayerControl player = collision.gameObject.GetComponent<PlayerControl>();
             Rigidbody2D RB = collision.gameObject.GetComponent<Rigidbody2D>();
 
             //Debug.Log(player.isOnMud);

@@ -7,14 +7,18 @@
  */
 
 using System.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.VFX;
-public class PlayerMovement : MonoBehaviour
+public class PlayerControl : MonoBehaviour
 {
 	//Scriptable object which holds all the player's movement parameters. If you don't want to use it
 	//just paste in all the parameters, though you will need to manuly change all references in this script
 	public PlayerData Data;
     public BulletTime bulletTime;
+	public FireballScript fireball;
+	public PushWind pushWind;
+
 	#region COMPONENTS
     public Rigidbody2D RB { get; private set; }
 	public Animator Anim { get; private set; }
@@ -62,7 +66,7 @@ public class PlayerMovement : MonoBehaviour
 	//Push
 	private float _pushesLeft;
 	private bool _pushRefilling;
-	private Collider2D[] airMovableObj;
+	//private Collider2D[] airMovableObj;
 
 	//Direction
 	private bool FacingUp;
@@ -104,8 +108,8 @@ public class PlayerMovement : MonoBehaviour
 
 	#region OBJECTS & EFFECTS
 	[Header("Objects & Effects")]
-	public GameObject Center;
-	public Transform weapon;
+	public GameObject center;
+	public Transform aimPivot;
 	public GameObject standCollider;
 	public GameObject crouchCollider;
 	public ParticleSystem jumpDust;
@@ -117,6 +121,7 @@ public class PlayerMovement : MonoBehaviour
 	[Header("Debug")]
 	public float movement;
 	public bool beingExplode;
+	public bool EnableDash;
 	#endregion
 	//public ParticleSystem dashParticle;
 	//public Transform dashParticlePivot;
@@ -172,12 +177,12 @@ public class PlayerMovement : MonoBehaviour
 		if (_moveInput.x != 0)
 			CheckDirectionToFace(_moveInput.x > 0);
 
-		if(Input.GetKeyDown(KeyCode.Space))
+		if(Input.GetButtonDown("Jump"))
         {
 			OnJumpInput();
         }
 
-		if (Input.GetKeyUp(KeyCode.Space))
+		if (Input.GetButtonUp("Jump"))
 		{
 			OnJumpUpInput();
 		}
@@ -185,9 +190,13 @@ public class PlayerMovement : MonoBehaviour
 		if (Input.GetKeyDown(KeyCode.X))
 		{
 			OnDashInput();
+			//OnPushInput();
+		}
+		if (Input.GetButtonDown("Wind"))
+		{
 			OnPushInput();
 		}
-		if(Input.GetButtonDown("Fire1"))
+		if(Input.GetButtonDown("Fire"))
 		{
 			Fire();
 		}
@@ -238,10 +247,12 @@ public class PlayerMovement : MonoBehaviour
 				backWallMud = false;
 
 			//Air-movable Object Check
+			/*
 			if(Physics2D.OverlapBox(_barrelCheckPoint.position, _pushCheckSize, 0, _airMovable) && IsCrouching)
 				airMovableObj = Physics2D.OverlapBoxAll(_barrelCheckPoint.position, _pushCheckSize, 0, _airMovable);
 			else
 				airMovableObj = null;
+			*/
 			
 
 		}
@@ -297,7 +308,7 @@ public class PlayerMovement : MonoBehaviour
 		#endregion
 
 		#region DASH CHECKS
-		if (CanDash() && LastPressedDashTime > 0 && !IsCrouching)
+		if (CanDash() && LastPressedDashTime > 0 && !IsCrouching && EnableDash)
 		{
 			//Freeze game for split second. Adds juiciness and a bit of forgiveness over directional input
 			Sleep(Data.dashSleepTime); 
@@ -396,7 +407,7 @@ public class PlayerMovement : MonoBehaviour
 			IsCrouching = true;
 			standCollider.SetActive(false);
 			crouchCollider.SetActive(true);
-			Center.transform.localPosition = new Vector3(0 , -0.7f , 0);
+			center.transform.localPosition = new Vector3(0 , -0.7f , 0);
 			
 		}
 		else
@@ -404,19 +415,20 @@ public class PlayerMovement : MonoBehaviour
 			IsCrouching = false;
 			standCollider.SetActive(true);
 			crouchCollider.SetActive(false);
-			Center.transform.localPosition = new Vector3(0 , -0.435f , 0);
+			center.transform.localPosition = new Vector3(0 , -0.435f , 0);
 		}
 
 		#endregion
 		
 		#region PUSH CHECK
-		if(CanPush() && LastPressedPushTime > 0 && airMovableObj != null)
+		if(CanPush() && LastPressedPushTime > 0)
 		{
 			Push();
 		}
 		#endregion
 
-		CheckAttackDir();
+		//CheckAttackDir();
+		CheckAimDir();
 	}
 
     private void FixedUpdate()
@@ -783,7 +795,7 @@ public class PlayerMovement : MonoBehaviour
 
 	public bool CanPush()
 	{
-		if(IsCrouching && !_pushRefilling)
+		if(!_pushRefilling)
 		{
 			StartCoroutine(nameof(RefillPush), 1);
 		}
@@ -804,8 +816,7 @@ public class PlayerMovement : MonoBehaviour
 		Gizmos.color = Color.blue;
 		Gizmos.DrawWireCube(_frontWallCheckPoint.position, _wallCheckSize);
 		Gizmos.DrawWireCube(_backWallCheckPoint.position, _wallCheckSize);
-		if(IsCrouching)
-			Gizmos.DrawWireCube(_barrelCheckPoint.position, _pushCheckSize);
+		//Gizmos.DrawWireCube(_barrelCheckPoint.position, _pushCheckSize);
 	}
     #endregion
 
@@ -835,7 +846,9 @@ public class PlayerMovement : MonoBehaviour
     }
 	#endregion
 
+	
 	#region DIRECTION METHODS
+	/*
 	void CheckAttackDir()
 	{
 		//bool isLeftWallSliding = false , isRightWallSliding = false;
@@ -855,52 +868,62 @@ public class PlayerMovement : MonoBehaviour
 
 		if(_moveInput.y == 1 && _moveInput.x != 0)
 		{
-			weapon.rotation = Quaternion.Euler(0 , 0 , 45 * transform.localScale.x);
+			aimPivot.rotation = Quaternion.Euler(0 , 0 , 45 * transform.localScale.x);
 			FacingUp = true;
 		}
 		else if(_moveInput.y == 1 && _moveInput.x == 0)
 		{
-			weapon.rotation = Quaternion.Euler(0 , 0 , 90 * transform.localScale.x);
+			aimPivot.rotation = Quaternion.Euler(0 , 0 , 90 * transform.localScale.x);
 			FacingUp = true;
 		}
 		else if(_moveInput.y == -1 && _moveInput.x != 0 && (IsJumping || _isJumpFalling || LastOnGroundTime < 0))
 		{
-			weapon.rotation = Quaternion.Euler(0 , 0 , -45 * transform.localScale.x);
+			aimPivot.rotation = Quaternion.Euler(0 , 0 , -45 * transform.localScale.x);
 			FacingDown = true;
 		}
 		else if(_moveInput.y == -1 && _moveInput.x == 0 && (IsJumping || _isJumpFalling || LastOnGroundTime < 0))
 		{
-			weapon.rotation = Quaternion.Euler(0 , 0 , -90 * transform.localScale.x);
+			aimPivot.rotation = Quaternion.Euler(0 , 0 , -90 * transform.localScale.x);
 			FacingDown = true;
 		}
 		else
 		{
-			weapon.rotation = Quaternion.Euler(0 , 0 , 0);
+			aimPivot.rotation = Quaternion.Euler(0 , 0 , 0);
 		}
 	}
+	*/
 	void CheckDashWindDir(GameObject dashWind , Vector2 dir)
 	{
-		if(true)
-		{
-			VisualEffect dashWindvfx = dashWind.GetComponent<VisualEffect>();
-			float inputXAbs = Mathf.Abs(_moveInput.x);
+		VisualEffect dashWindvfx = dashWind.GetComponent<VisualEffect>();
+		float inputXAbs = Mathf.Abs(_moveInput.x);
 
-			if(_moveInput.y == 1)
-			{
-				dashWindvfx.SetVector3("WindRotate" , new Vector3(dir.y , -dir.x*inputXAbs , 0));
-				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-dir.x*inputXAbs , -1 , 0));
-			}
-			else if(_moveInput.y == -1 && (IsJumping || _isJumpFalling || LastOnGroundTime < 0))
-			{
-				dashWindvfx.SetVector3("WindRotate" , new Vector3(dir.y , -dir.x*inputXAbs , 0));
-				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-dir.x*inputXAbs , 1 , 0));
-			}
-			else
-			{
-				dashWindvfx.SetVector3("WindRotate" , new Vector3(0 , -dir.x , 0));
-				dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-dir.x, 0 , 0));
-			}
+		if(_moveInput.y == 1)
+		{
+			dashWindvfx.SetVector3("WindRotate" , new Vector3(dir.y , -dir.x*inputXAbs , 0));
+			dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-dir.x*inputXAbs , -1 , 0));
 		}
+		else if(_moveInput.y == -1 && (IsJumping || _isJumpFalling || LastOnGroundTime < 0))
+		{
+			dashWindvfx.SetVector3("WindRotate" , new Vector3(dir.y , -dir.x*inputXAbs , 0));
+			dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-dir.x*inputXAbs , 1 , 0));
+		}
+		else
+		{
+			dashWindvfx.SetVector3("WindRotate" , new Vector3(0 , -dir.x , 0));
+			dashWindvfx.SetVector3("WindMovingDirecton" , new Vector3(-dir.x, 0 , 0));
+		}
+	}
+
+	void CheckAimDir()
+	{
+		Vector2 dir = Camera.main.ScreenToWorldPoint(Input.mousePosition) - aimPivot.position;
+		float angle = Mathf.Atan2(dir.y , dir.x) * Mathf.Rad2Deg;
+
+		if(transform.localScale.x == -1)
+			angle += 180;
+	
+		Quaternion rotation = Quaternion.AngleAxis(angle , Vector3.forward);
+		aimPivot.rotation = rotation;
 	}
 	#endregion
 
@@ -929,8 +952,7 @@ public class PlayerMovement : MonoBehaviour
 	//動畫執行時會執行此函式
 	void UsingFire()
 	{
-		BarrelScript fire = gameObject.GetComponentInChildren<BarrelScript>();
-		fire.Fireball();
+		fireball.Fireball();
 		bulletTime.DoBulletTime();
 	}
 	#endregion
@@ -941,6 +963,8 @@ public class PlayerMovement : MonoBehaviour
 		LastPressedPushTime = 0;
 		_pushesLeft--;
 
+		pushWind.CreatePushWind();
+		/*
 		if(airMovableObj != null)
 		{
 			foreach(var obj in airMovableObj)
@@ -951,6 +975,7 @@ public class PlayerMovement : MonoBehaviour
 			}
 		}
 		airMovableObj = null;
+		*/
 	}
 	private IEnumerator RefillPush(int amount)
 	{
@@ -982,10 +1007,10 @@ public class PlayerMovement : MonoBehaviour
 
 	void CreateDashWind(Vector2 dir)
 	{
-		var dashWind = Instantiate(dashWindVFX , Center.transform.position , transform.rotation);
-		var dashWindSecond = Instantiate(dashWindVFXSecond , Center.transform.position , transform.rotation);
+		var dashWind = Instantiate(dashWindVFX , center.transform.position , transform.rotation);
+		var dashWindSecond = Instantiate(dashWindVFXSecond , center.transform.position , transform.rotation);
 
-		dashWindSecond.transform.parent = Center.transform;
+		dashWindSecond.transform.parent = center.transform;
 		//dashWind.transform.parent = windCenter.transform;
 
 		dashWind.SetActive(true);

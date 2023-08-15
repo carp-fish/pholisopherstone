@@ -2,9 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BarrelScript : MonoBehaviour
+public class FireballScript : MonoBehaviour
 {
-    public Transform barrel;
     public Rigidbody2D bullet;
     public float fireSpeed = 500f;
 
@@ -12,8 +11,8 @@ public class BarrelScript : MonoBehaviour
 
     public void Fireball()
     {
-        var firedBullet = Instantiate(bullet , barrel.position , barrel.rotation);
+        var firedBullet = Instantiate(bullet , transform.position , transform.rotation);
 
-        firedBullet.AddForce(barrel.up * fireSpeed);
+        firedBullet.AddForce(transform.up * fireSpeed);
     }
 }

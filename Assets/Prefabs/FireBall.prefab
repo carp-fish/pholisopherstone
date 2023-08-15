@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 1282793603183964913}
   - component: {fileID: 1678040209000212828}
   m_Layer: 9
-  m_Name: FireBall
+  m_Name: Fireball
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -34,7 +34,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 4
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &7778387996234069176
 SpriteRenderer:

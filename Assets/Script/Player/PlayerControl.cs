@@ -9,6 +9,7 @@
 using System.Collections;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.VFX;
 public class PlayerControl : MonoBehaviour
 {
@@ -117,6 +118,14 @@ public class PlayerControl : MonoBehaviour
 	public GameObject dashWindVFXSecond;
 	#endregion
 
+	#region MOVEMENT
+	[Header("Movement")]
+	public bool isOnSlope;
+	public LayerMask slopeMask;
+	public float slopeRaycastDistance = 1;
+	public RaycastHit2D slopeHit;
+	#endregion
+
 	#region  FOR DEBUG
 	[Header("Debug")]
 	public float movement;
@@ -203,11 +212,20 @@ public class PlayerControl : MonoBehaviour
 		#endregion
 
 		#region COLLISION CHECKS
+		slopeHit = Physics2D.Raycast(_groundCheckPoint.position , Vector2.down , slopeRaycastDistance , slopeMask);
+		if(slopeHit && Physics2D.OverlapBox(_groundCheckPoint.position, _groundCheckSize, 0, _groundLayer))
+		{
+			isOnSlope = true;
+			float slopeAngle = Vector2.Angle(slopeHit.normal , Vector2.up);
+		}
+		else
+			isOnSlope = false;
 		if (!IsDashing && !IsJumping)
 		{
 			//Ground Check
 			if (Physics2D.OverlapBox(_groundCheckPoint.position, _groundCheckSize, 0, _groundLayer) && !IsJumping) //checks if set box overlaps with ground
 			{
+				//Debug.Log("ground");
 				//if so sets the lastGrounded to coyoteTime
 				LastOnGroundTime = Data.coyoteTime;
 
@@ -362,6 +380,12 @@ public class PlayerControl : MonoBehaviour
 			if (IsSliding)
 			{
 				SetGravityScale(0);
+			}
+			else if(isOnSlope)
+			{
+				SetGravityScale(0);
+				if(RB.velocity.y > 0)
+					RB.AddForce(Vector2.down * 10f , ForceMode2D.Force);
 			}
 			else if (RB.velocity.y < 0 && _moveInput.y < 0)
 			{
@@ -550,7 +574,12 @@ public class PlayerControl : MonoBehaviour
 		float movement = speedDif * accelRate;
 
 		//Convert this to a vector and apply to rigidbody
-		RB.AddForce(movement * Vector2.right, ForceMode2D.Force);
+		if(isOnSlope)
+		{
+			RB.AddForce(movement * GetSlopeMoveDirection(), ForceMode2D.Force);
+		}
+		else
+			RB.AddForce(movement * Vector2.right, ForceMode2D.Force);
 
 		/*
 		 * For those interested here is what AddForce() will do
@@ -591,6 +620,8 @@ public class PlayerControl : MonoBehaviour
 			
 		if (RB.velocity.y < 0)
 			force -= RB.velocity.y;
+		if(RB.velocity.y > 0)
+			RB.velocity = new Vector2(RB.velocity.x , 0);
 
 		CreateJumpDust();
 
@@ -817,6 +848,7 @@ public class PlayerControl : MonoBehaviour
 		Gizmos.DrawWireCube(_frontWallCheckPoint.position, _wallCheckSize);
 		Gizmos.DrawWireCube(_backWallCheckPoint.position, _wallCheckSize);
 		//Gizmos.DrawWireCube(_barrelCheckPoint.position, _pushCheckSize);
+		Gizmos.DrawRay(_groundCheckPoint.position , Vector2.down * slopeRaycastDistance);
 	}
     #endregion
 
@@ -1037,12 +1069,18 @@ public class PlayerControl : MonoBehaviour
 		}
 	}
 	#endregion
-private void OnCollisionEnter2D(Collision2D other) {
+	private void OnCollisionEnter2D(Collision2D other) {
 		if(other.gameObject.tag == "Explosive")
 		{
 			beingExplode = true;
 		}
 		//beingExplode = false;
+	}
+
+	private Vector2 GetSlopeMoveDirection()
+	{
+		float slopeAngle = Vector2.Angle(slopeHit.normal , Vector2.up);
+		return new Vector2(Mathf.Cos(slopeAngle * Mathf.Deg2Rad) , Mathf.Sin(slopeAngle * Mathf.Deg2Rad));
 	}
 }
 

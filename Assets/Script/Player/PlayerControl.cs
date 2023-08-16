@@ -6,6 +6,7 @@
 	Feel free to use this in your own games, and I'd love to see anything you make!
  */
 
+using System;
 using System.Collections;
 using Unity.Mathematics;
 using UnityEngine;

@@ -20,7 +20,7 @@ public class PlayerControl : MonoBehaviour
     public BulletTime bulletTime;
 	public FireballScript fireball;
 	public PushWind pushWind;
-
+	
 	#region COMPONENTS
     public Rigidbody2D RB { get; private set; }
 	public Animator Anim { get; private set; }

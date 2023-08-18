@@ -23,7 +23,14 @@ public void PlaySound(AudioClip clip)
 {
   _effectSource.PlayOneShot(clip);
 }
-
+public void ChangeMusicVolume(float value)
+{
+    _musicSource.volume=value;
+}
+public void ChangeSoundVolume(float value)
+{
+    _effectSource.volume=value;
+}
     void Start()
     {
         

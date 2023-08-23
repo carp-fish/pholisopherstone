@@ -14,7 +14,12 @@ public class FireBallDestroy : MonoBehaviour
             Explosion explode = other.gameObject.GetComponent<Explosion>();
             explode.OnCollisionExplode();
         }
-        if(other.gameObject.tag != "Player")
+        else if(other.gameObject.tag == "WoodPillar")
+        {
+            WoodPillar woodPillar = other.gameObject.GetComponent<WoodPillar>();
+            woodPillar.Collapse();
+        }
+        else if(other.gameObject.tag != "Player")
         {
             Destroy(gameObject);
         }

@@ -18,6 +18,8 @@ TagManager:
   - Explosive
   - Mud
   - WindArea
+  - FireBall
+  - WoodPillar
   layers:
   - Default
   - TransparentFX

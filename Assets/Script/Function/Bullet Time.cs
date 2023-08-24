@@ -20,20 +20,11 @@ public class BulletTime : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-<<<<<<< HEAD
         if (Input.GetKeyDown(KeyCode.F))
-=======
-        if (Input.GetKeyDown(KeyCode.Keypad0))
->>>>>>> origin/main
         {
             StartSlowMotion();
         }
-
-<<<<<<< HEAD
         if (Input.GetKeyUp(KeyCode.F))
-=======
-        if (Input.GetKeyUp(KeyCode.Keypad0))
->>>>>>> origin/main
         {
             StopSlowMotion();
         }

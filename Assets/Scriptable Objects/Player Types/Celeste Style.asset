@@ -40,6 +40,16 @@ MonoBehaviour:
   doTurnOnWallJump: 0
   slideSpeed: 0
   slideAccel: 0
+  crouchSlideLerp: 0.4
+  crouchSlideSlopeLerp: 0
+  slopeSlideMaxSpeed: 18
+  crouchSlideAcceleration: 3
+  crouchSlideAccelAmount: 8.333333
+  crouchSlideDecceleration: 5
+  crouchSlideDeccelAmount: 13.888889
+  accelOnGround: 0.8
+  deccelOnGround: 0.8
+  crouchSlideDoConserveMomentum: 1
   coyoteTime: 0.1
   jumpInputBufferTime: 0.1
   dashAmount: 1
@@ -56,3 +66,14 @@ MonoBehaviour:
   pushKnockbackForce: 20
   pushRefillTime: 0.1
   pushInputBufferTime: 0.1
+  fireballInputBufferTime: 0.1
+  fireballCooldown: 0.5
+  maxHoldTime: 2
+  holdtimeScale: 0.25
+  fireballDuration: 0.28
+  fireballDrag: 3
+  airPushInputBufferTime: 0.1
+  airPushCooldown: 0.5
+  airPushTime: 0.12
+  airPushDuration: 0.28
+  airPushDrag: 8

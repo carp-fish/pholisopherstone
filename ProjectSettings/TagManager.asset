@@ -16,8 +16,8 @@ TagManager:
   - Environment
   - Creature
   - Explosive
-  - Mud
   - WindArea
+  - CanGrab
   layers:
   - Default
   - TransparentFX

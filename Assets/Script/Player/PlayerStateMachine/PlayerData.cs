@@ -57,12 +57,32 @@ public class PlayerData : ScriptableObject
 	public float slideSpeed;
 	public float slideAccel;
 
+	[Space(20)]
+
+	[Header("CrouchSlide")]
+	public float crouchSlideLerp;
+	public float crouchSlideSlopeLerp;
+
+	[Space(5)]
+	public float slopeSlideMaxSpeed; //Target speed we want the player to reach.
+	public float crouchSlideAcceleration; //The speed at which our player accelerates to max speed, can be set to runMaxSpeed for instant acceleration down to 0 for none at all
+	[HideInInspector] public float  crouchSlideAccelAmount; //The actual force (multiplied with speedDiff) applied to the player.
+	public float  crouchSlideDecceleration; //The speed at which our player decelerates from their current speed, can be set to runMaxSpeed for instant deceleration down to 0 for none at all
+	[HideInInspector] public float  crouchSlideDeccelAmount; //Actual force (multiplied with speedDiff) applied to the player .
+	[Space(5)]
+	[Range(0f, 1)] public float accelOnGround; //Multipliers applied to acceleration rate when airborne.
+	[Range(0f, 1)] public float deccelOnGround;
+	[Space(5)]
+	public bool crouchSlideDoConserveMomentum = true;
+
+	[Space(20)]
+
     [Header("Assists")]
 	[Range(0.01f, 0.5f)] public float coyoteTime; //Grace period after falling off a platform, where you can still jump
 	[Range(0.01f, 0.5f)] public float jumpInputBufferTime; //Grace period after pressing jump where a jump will be automatically performed once the requirements (eg. being grounded) are met.
 
 	[Space(20)]
-
+	
 	[Header("Dash")]
 	public int dashAmount;
 	public float dashSpeed;
@@ -78,6 +98,8 @@ public class PlayerData : ScriptableObject
 	[Space(5)]
 	[Range(0.01f, 0.5f)] public float dashInputBufferTime;
 
+	[Space(20)]
+
 	[Header("Push")]
 	public int pushAmount;
 	public int pushForce;
@@ -85,6 +107,27 @@ public class PlayerData : ScriptableObject
 	[Space(5)]
 	public float pushRefillTime;
 	[Range(0.01f, 0.1f)] public float pushInputBufferTime;
+
+	[Space(20)]
+
+	[Header("Fireball State")]
+	[Range(0.01f, 0.1f)] public float fireballInputBufferTime;
+	public float fireballCooldown;
+	public float maxHoldTime;
+	public float holdtimeScale;
+	public float fireballDuration;
+	public float fireballDrag;
+
+	[Space(20)]
+
+	[Header("Air Push State")]
+	[Range(0.01f, 0.1f)] public float airPushInputBufferTime;
+	public float airPushCooldown;
+	public float airPushTime;
+	public float airPushDuration;
+	public float airPushDrag;
+	
+	
 	
 
 	//Unity Callback, called when the inspector updates
@@ -100,12 +143,18 @@ public class PlayerData : ScriptableObject
 		runAccelAmount = (50 * runAcceleration) / runMaxSpeed;
 		runDeccelAmount = (50 * runDecceleration) / runMaxSpeed;
 
+		crouchSlideAccelAmount = (50 * crouchSlideAcceleration) / slopeSlideMaxSpeed;
+		crouchSlideDeccelAmount = (50 * crouchSlideDecceleration) / slopeSlideMaxSpeed;
+
 		//Calculate jumpForce using the formula (initialJumpVelocity = gravity * timeToJumpApex)
 		jumpForce = Mathf.Abs(gravityStrength) * jumpTimeToApex;
 
 		#region Variable Ranges
 		runAcceleration = Mathf.Clamp(runAcceleration, 0.01f, runMaxSpeed);
 		runDecceleration = Mathf.Clamp(runDecceleration, 0.01f, runMaxSpeed);
+
+		crouchSlideAcceleration = Mathf.Clamp(crouchSlideAcceleration, 0.01f, slopeSlideMaxSpeed);
+		crouchSlideDecceleration = Mathf.Clamp(crouchSlideDecceleration, 0.01f, slopeSlideMaxSpeed);
 		#endregion
 	}
 }

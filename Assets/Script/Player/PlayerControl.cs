@@ -361,10 +361,11 @@ public class PlayerControl : MonoBehaviour
 		#endregion
 
 		#region SLIDE CHECKS
-		if (CanSlide() && ((LastOnWallLeftTime > 0 && _moveInput.x <= 0 && leftKeyPressed) || (LastOnWallRightTime > 0 && _moveInput.x >= 0 && rightKeyPressed)) && OnWallMud())
+		if (CanSlide() && ((LastOnWallLeftTime > 0 && _moveInput.x < 0 ) || (LastOnWallRightTime > 0 && _moveInput.x > 0)))
 		{
 			IsSliding = true;
-			//Debug.Log("slide");
+
+			Debug.Log("slide");
 		}
 		else
 			IsSliding = false;
@@ -808,7 +809,9 @@ public class PlayerControl : MonoBehaviour
 	public bool CanSlide()
     {
 		if (LastOnWallTime > 0 && !IsJumping && !IsWallJumping && !IsDashing && LastOnGroundTime <= 0)
+		{
 			return true;
+		}
 		else
 			return false;
 	}

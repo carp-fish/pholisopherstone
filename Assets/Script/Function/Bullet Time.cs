@@ -24,6 +24,7 @@ public class BulletTime : MonoBehaviour
         {
             StartSlowMotion();
         }
+
         if (Input.GetKeyUp(KeyCode.F))
         {
             StopSlowMotion();

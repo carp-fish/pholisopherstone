@@ -505,6 +505,13 @@ public class Player : MonoBehaviour
 	}
 
 	#endregion
+
+	#region SLOPE
+	
+
+
+
+	#endregion
 	
 	
 	public void CheckDirectionToFace(bool isMovingRight)
@@ -613,6 +620,18 @@ public class Player : MonoBehaviour
 		RB.gravityScale = scale;
 	}
 
-
 	#endregion
+
+	#region EDITOR METHODS
+    private void OnDrawGizmosSelected()
+    {
+		Gizmos.color = Color.green;
+		Gizmos.DrawWireCube(_groundCheckPoint.position, _groundCheckSize);
+		Gizmos.color = Color.blue;
+		Gizmos.DrawWireCube(_frontWallCheckPoint.position, _wallCheckSize);
+		Gizmos.DrawWireCube(_backWallCheckPoint.position, _wallCheckSize);
+		//Gizmos.DrawWireCube(_barrelCheckPoint.position, _pushCheckSize);
+		//Gizmos.DrawRay(_groundCheckPoint.position , Vector2.down * slopeRaycastDistance);
+	}
+    #endregion
 }

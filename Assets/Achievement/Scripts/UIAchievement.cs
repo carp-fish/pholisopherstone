@@ -30,7 +30,7 @@ public class UIAchievement : MonoBehaviour
         if(Information.Spoiler && !State.Achieved)
         {
             SpoilerOverlay.SetActive(true);
-            SpoilerText.text = AchievementManager.instance.SpoilerAchievementMessage;
+            SpoilerText.text = AchievementManager.Instance.SpoilerAchievementMessage;
         }
         else
         {
@@ -50,7 +50,7 @@ public class UIAchievement : MonoBehaviour
 
             if (Information.Progression)
             {
-                float CurrentProgress = AchievementManager.instance.ShowExactProgress ? State.Progress : (State.LastProgressUpdate * Information.NotificationFrequency);
+                float CurrentProgress = AchievementManager.Instance.ShowExactProgress ? State.Progress : (State.LastProgressUpdate * Information.NotificationFrequency);
                 float DisplayProgress = State.Achieved ? Information.ProgressGoal : CurrentProgress;
 
                 if (State.Achieved)
@@ -74,7 +74,7 @@ public class UIAchievement : MonoBehaviour
 
     private IEnumerator Wait ()
     {
-        yield return new WaitForSeconds(AchievementManager.instance.DisplayTime);
+        yield return new WaitForSeconds(AchievementManager.Instance.DisplayTime);
         GetComponent<Animator>().SetTrigger("ScaleDown");
         yield return new WaitForSeconds(0.1f);
         AS.CheckBackLog();

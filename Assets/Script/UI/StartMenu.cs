@@ -2,34 +2,45 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 public class StartMenu : MonoBehaviour
 {
-    
-    public GameObject SettingMenuUI;
-    void Start()
+    [SerializeField] private GameObject settingMenu;
+    private bool SettingOpen =false;
+    private void Start()
     {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
-public void StartGame ()//現在是直接進關卡內 之後要進章節選單
-    {
-       SceneManager.LoadScene("TestLevel");
-    }
-public void LoadGame()//先進存檔選單但沒有讀檔功能
-    {
+        SoundManager.Instance.getSliders();
+        AchievenmentListIngame.Instance.GetAchieveSysButton();
+        settingMenu.SetActive(false);
 
     }
-public void OpenSetting ()
+    private void Update()
     {
-        SettingMenuUI.SetActive(true);
+        if(Input.GetKeyDown(KeyCode.Escape))
+        {
+            if(SettingOpen==true)
+            {
+                CloseSetting();
+            }
+        }
     }
-public void ExitSetting ()
+    public void StartGame()
     {
-        SettingMenuUI.SetActive(false);
+        SceneManager.LoadScene("UnitedScene");
+    }
+    public void LoadGame()//先進存檔選單但沒有讀檔功能
+    {
+
+    }
+    public void OpenSetting()
+    {
+        settingMenu.SetActive(true);
+        SettingOpen=true;
+        SoundManager.Instance.getSliders();
+    }
+    public void CloseSetting()
+    {
+        settingMenu.SetActive(false);
+        SettingOpen=false;
     }
 }

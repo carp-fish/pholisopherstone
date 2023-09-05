@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using System;
 using System.Linq;
 
@@ -38,16 +39,16 @@ public class AchievementManager : MonoBehaviour
     [Tooltip("The key of the final achievement")]
     public string FinalAchievementKey;
 
-    public static AchievementManager instance = null; //Singleton Instance
+    public static AchievementManager Instance = null; //Singleton Instance
     public AchievenmentStack Stack;
 
     void Awake()
     {
-       if (instance == null)
+       if (Instance == null)
        {
-            instance = this;
+            Instance = this;
        }
-       else if (instance != this)
+       else if (Instance != this)
        {
             Destroy(gameObject);
        }
@@ -300,4 +301,5 @@ public class AchievementManager : MonoBehaviour
             }
         }
     }
+
 }

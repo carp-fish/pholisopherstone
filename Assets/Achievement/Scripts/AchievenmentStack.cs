@@ -15,7 +15,7 @@ public class AchievenmentStack : MonoBehaviour
 
     private void Start()
     {
-        AM = AchievementManager.instance;
+        AM = AchievementManager.Instance;
     }
 
     /// <summary>

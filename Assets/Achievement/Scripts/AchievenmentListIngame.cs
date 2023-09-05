@@ -6,6 +6,7 @@ using UnityEngine.UI;
 /// </summary>
 public class AchievenmentListIngame : MonoBehaviour
 {
+    public static AchievenmentListIngame Instance = null;
     [HideInInspector] public GameObject scrollContent;
     [HideInInspector] public GameObject prefab;
     [HideInInspector] public GameObject Menu;
@@ -13,30 +14,41 @@ public class AchievenmentListIngame : MonoBehaviour
     [HideInInspector] public Text CountText;
     [HideInInspector] public Text CompleteText;
     [HideInInspector] public Scrollbar Scrollbar;
-      
+
     private bool MenuOpen = false;
     [Tooltip("Key used to open UI menu. Set to \"None\" to prevent menu from opening with any key press")]
     public KeyCode OpenMenuKey; //Key to open in-game menu
-
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else if (Instance != this)
+        {
+            Destroy(gameObject);
+        }
+        DontDestroyOnLoad(gameObject);
+    }
     /// <summary>
     /// Adds all achievements to the UI based on a filter
     /// </summary>
     /// <param name="Filter">Filter to use (All, Achieved or Unachieved)</param>
     private void AddAchievements(string Filter)
-    {  
+    {
         foreach (Transform child in scrollContent.transform)
         {
             Destroy(child.gameObject);
         }
-        AchievementManager AM = AchievementManager.instance;
+        AchievementManager AM = AchievementManager.Instance;
         int AchievedCount = AM.GetAchievedCount();
 
         CountText.text = "" + AchievedCount + " / " + AM.States.Count;
         CompleteText.text = "Complete (" + AM.GetAchievedPercentage() + "%)";
 
-        for (int i = 0; i < AM.AchievementList.Count; i ++)
+        for (int i = 0; i < AM.AchievementList.Count; i++)
         {
-            if((Filter.Equals("All")) || (Filter.Equals("Achieved") && AM.States[i].Achieved) || (Filter.Equals("Unachieved") && !AM.States[i].Achieved))
+            if ((Filter.Equals("All")) || (Filter.Equals("Achieved") && AM.States[i].Achieved) || (Filter.Equals("Unachieved") && !AM.States[i].Achieved))
             {
                 AddAchievementToUI(AM.AchievementList[i], AM.States[i]);
             }
@@ -53,7 +65,7 @@ public class AchievenmentListIngame : MonoBehaviour
     /// <summary>
     /// Filter out a set of locked or unlocked achievements
     /// </summary>
-    public void ChangeFilter ()
+    public void ChangeFilter()
     {
         AddAchievements(Filter.options[Filter.value].text);
     }
@@ -80,19 +92,35 @@ public class AchievenmentListIngame : MonoBehaviour
     /// </summary>
     public void ToggleWindow()
     {
-        if (MenuOpen){
+        if (MenuOpen)
+        {
             CloseWindow();
         }
-        else{
+        else
+        {
             OpenWindow();
         }
     }
- 
+
     private void Update()
     {
-        if(Input.GetKeyDown(OpenMenuKey))
+        if (Input.GetKeyDown(OpenMenuKey))
         {
             ToggleWindow();
         }
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (MenuOpen)
+            {
+                CloseWindow();
+            }
+        }
+    }
+
+    public Button achieveButton;
+    public void GetAchieveSysButton()
+    {
+        achieveButton = GameObject.Find("AchievementButton").GetComponent<Button>();
+        achieveButton.onClick.AddListener(delegate { OpenWindow(); });
     }
 }
